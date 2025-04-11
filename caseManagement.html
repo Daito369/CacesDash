@@ -1,0 +1,611 @@
+<script>
+  /**
+   * caseManagement.html - 新規ケース登録機能
+   * フォームの生成、バリデーション、データ送信
+   */
+
+  /**
+   * 新規ケースフォームの初期化
+   * タブがアクティブになったときに呼び出される想定
+   */
+  function initializeNewCaseForm() {
+    const formContainer = document.getElementById('newCaseFormContainer');
+    if (!formContainer) {
+      console.error("New case form container #newCaseFormContainer not found.");
+      return;
+    }
+
+    // スプレッドシートIDチェック
+    if (!currentSettings || !currentSettings.spreadsheetId) {
+      formContainer.innerHTML = `
+      <div class="not-configured-message">
+        <i class="material-icons-outlined">settings</i>
+        <p>スプレッドシートIDが設定されていません。「設定」タブで設定してください。</p>
+      </div>`;
+      return;
+    }
+
+    // ユーザー情報チェック
+    if (!userInfo || !userInfo.ldap) {
+      formContainer.innerHTML = `
+      <div class="error-message">
+        <i class="material-icons-outlined">person_off</i>
+        <p>ユーザー情報が取得できません。ページを再読み込みしてください。</p>
+      </div>`;
+      return;
+    }
+
+    // フォーム定義の存在チェック
+    if (typeof formDefinitions === 'undefined' ||
+      !formDefinitions.segment ||
+      !formDefinitions.productCategory ||
+      !formDefinitions.issueCategory) {
+      console.error("Form definitions are missing or incomplete.");
+      formContainer.innerHTML = `
+      <div class="error-message">
+        <i class="material-icons-outlined">error_outline</i>
+        <p>フォーム選択肢の読み込みに失敗しました。ページを再読み込みしてください。</p>
+      </div>`;
+      return;
+    }
+
+    // フォームHTML生成
+    const formHtml = createNewCaseFormHtml();
+    formContainer.innerHTML = formHtml;
+
+    // フォームコンポーネントの初期化
+    initializeFormComponents(formContainer);
+
+    // イベントリスナー設定
+    setupNewCaseFormEventListeners();
+  }
+
+  /**
+   * 新規ケースフォームのHTMLを生成
+   * @return {string} フォームのHTML文字列
+   */
+  function createNewCaseFormHtml() {
+    // 現在の日時を取得
+    const now = new Date();
+    const currentDate = formatDate(now);
+    const currentTime = formatTime(now);
+
+    return `
+    <form id="newCaseForm" class="case-form" novalidate>
+      <div class="form-section">
+        <div class="form-section-title">基本情報</div>
+        <div class="form-grid">
+          <!-- Case ID (Text Field) -->
+          <div class="form-group required">
+            ${createMdcTextFieldHtml('caseId', 'Case ID', '', true, '例: 1-1234567890123')}
+          </div>
+
+          <!-- Case Open Date (Date Picker) -->
+          <div class="form-group required">
+            ${createMdcTextFieldHtml('caseOpenDate', '開始日', currentDate, true, 'YYYY/MM/DD形式', 'text')}
+          </div>
+
+          <!-- Case Open Time (Time Picker) -->
+          <div class="form-group required">
+            ${createMdcTextFieldHtml('caseOpenTime', '開始時間', currentTime, true, 'HH:MM:SS形式', 'text')}
+          </div>
+
+          <!-- Segment (Select) -->
+          <div class="form-group required">
+            ${createMdcSelectHtml('segment', 'セグメント', formDefinitions.segment, '', true)}
+          </div>
+
+          <!-- Product Category (Select) -->
+          <div class="form-group required">
+            ${createMdcSelectHtml('productCategory', '製品カテゴリ', formDefinitions.productCategory, '', true)}
+          </div>
+
+          <!-- Issue Category (Select) -->
+          <div class="form-group">
+            ${createMdcSelectHtml('issueCategory', '問題カテゴリ', formDefinitions.issueCategory)}
+          </div>
+        </div>
+
+        <!-- Checkboxes -->
+        <div class="form-grid checkbox-grid" style="margin-top: 16px;">
+          <div class="form-group">
+            ${createMdcCheckboxHtml('triage', 'Triage')}
+          </div>
+          <div class="form-group">
+            ${createMdcCheckboxHtml('either', 'Either')}
+          </div>
+          <div class="form-group">
+            ${createMdcCheckboxHtml('3.0', '3.0')}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">担当者情報</div>
+        <div class="form-grid">
+          <!-- 1st Assignee (Readonly Text Field) -->
+          <div class="form-group required">
+            ${createMdcTextFieldHtml('firstAssigneeLdap', '担当者 (LDAP)', userInfo.ldap, true, '', 'text', true)}
+          </div>
+
+          <!-- Final Assignee (Text Field) -->
+          <div class="form-group required">
+            ${createMdcTextFieldHtml('finalAssignee', '最終担当者 (LDAP)', userInfo.ldap, true)}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">ステータス設定 (任意)</div>
+        <div class="form-grid">
+          <!-- Case Status (Select - Default Assigned) -->
+          <div class="form-group required">
+            ${createMdcSelectHtml('caseStatus', 'ケースステータス', formDefinitions.caseStatus, 'Assigned', true)}
+          </div>
+
+          <!-- AM Transfer (Select) -->
+          <div class="form-group">
+            ${createMdcSelectHtml('amTransfer', 'AM Transfer', formDefinitions.amTransfer)}
+          </div>
+
+          <!-- non NCC (Select) -->
+          <div class="form-group">
+            ${createMdcSelectHtml('nonNCC', 'non NCC', formDefinitions.nonNCC)}
+          </div>
+        </div>
+
+        <!-- Checkboxes -->
+        <div class="form-grid checkbox-grid" style="margin-top: 16px;">
+          <div class="form-group">
+            ${createMdcCheckboxHtml('bug', 'Bug')}
+          </div>
+          <div class="form-group">
+            ${createMdcCheckboxHtml('needInfo', 'Need Info')}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-validation-message" id="newCaseValidationMessage" style="min-height: 1em; margin-top: 8px;"></div>
+
+      <div class="buttons-container">
+        <button type="button" id="resetNewCaseBtn" class="mdc-button mdc-button--outlined">
+          <span class="mdc-button__ripple"></span>
+          <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">refresh</i>
+          <span class="mdc-button__label">リセット</span>
+        </button>
+        <button type="button" id="submitNewCaseBtn" class="mdc-button mdc-button--raised">
+          <span class="mdc-button__ripple"></span>
+          <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">send</i>
+          <span class="mdc-button__label">送信</span>
+        </button>
+      </div>
+    </form>
+  `;
+  }
+
+  /**
+   * フォーム内のMDCコンポーネントを初期化
+   * @param {HTMLElement} container - フォームを含むコンテナ要素
+   */
+  function initializeFormComponents(container) {
+    if (!container) return;
+
+    // Text Fields
+    container.querySelectorAll('.mdc-text-field').forEach(el => {
+      const instance = new mdc.textField.MDCTextField(el);
+      if (el.id) mdcTextFieldComponents[el.id] = instance;
+    });
+
+    // Selects
+    container.querySelectorAll('.mdc-select').forEach(el => {
+      const instance = new mdc.select.MDCSelect(el);
+      if (el.id) mdcSelectComponents[el.id] = instance;
+
+      // キーボード操作機能拡張 (プレフィックス検索)
+      enhanceSelectKeyboardNavigation(el);
+    });
+
+    // Checkboxes
+    container.querySelectorAll('.mdc-checkbox').forEach(el => new mdc.checkbox.MDCCheckbox(el));
+    container.querySelectorAll('.mdc-form-field').forEach(el => new mdc.formField.MDCFormField(el));
+
+    // Buttons
+    container.querySelectorAll('.mdc-button').forEach(el => new mdc.ripple.MDCRipple(el));
+
+    // 日付・時間ピッカー初期化
+    const dateInput = container.querySelector('#caseOpenDate');
+    if (dateInput) {
+      initDatePicker(dateInput);
+    }
+
+    const timeInput = container.querySelector('#caseOpenTime');
+    if (timeInput) {
+      initTimePicker(timeInput);
+    }
+
+    console.log("Form components initialized for new case form.");
+  }
+
+  /**
+   * イベントリスナー設定
+   */
+  function setupNewCaseFormEventListeners() {
+    const submitBtn = document.getElementById('submitNewCaseBtn');
+    const resetBtn = document.getElementById('resetNewCaseBtn');
+
+    if (submitBtn) {
+      submitBtn.addEventListener('click', submitNewCase);
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', resetNewCaseForm);
+    }
+  }
+
+  /**
+   * Selectコンポーネントのキーボード操作を拡張（文字入力でアイテムジャンプ）
+   * @param {HTMLElement} selectElement - 拡張対象のSelect要素
+   */
+  function enhanceSelectKeyboardNavigation(selectElement) {
+    // メニュー要素参照取得
+    const menuElement = selectElement.querySelector('.mdc-menu');
+    if (!menuElement) return;
+
+    // メニューのキーダウンイベントを処理
+    menuElement.addEventListener('keydown', (e) => {
+      // 入力が文字キーの場合
+      if (/^[a-zA-Z0-9]$/.test(e.key)) {
+        const options = selectElement.querySelectorAll('.mdc-list-item');
+
+        // 項目検索: 入力文字で始まる最初の項目を見つける
+        for (let i = 0; i < options.length; i++) {
+          const optionText = options[i].textContent.trim().toLowerCase();
+          if (optionText.startsWith(e.key.toLowerCase())) {
+            // この項目にスクロールしてフォーカス
+            options[i].focus();
+            options[i].scrollIntoView({ block: 'nearest' });
+            e.preventDefault(); // デフォルト動作をキャンセル
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * 新規ケースフォームをリセットする
+   */
+  function resetNewCaseForm() {
+    const form = document.getElementById('newCaseForm');
+    const validationMessage = document.getElementById('newCaseValidationMessage');
+    if (!form) return;
+
+    form.reset(); // 標準フォームリセット
+
+    // MDC Select の表示をリセット
+    form.querySelectorAll('.mdc-select').forEach(selectEl => {
+      try {
+        // MDCコンポーネントを取得
+        let selectInstance = null;
+        if (selectEl.id && mdcSelectComponents[selectEl.id]) {
+          selectInstance = mdcSelectComponents[selectEl.id];
+        } else {
+          // IDがない場合は新しくインスタンス化
+          selectInstance = new mdc.select.MDCSelect(selectEl);
+        }
+
+        // 最初の選択肢に戻す (空)
+        selectInstance.selectedIndex = 0;
+
+        // caseStatus には 'Assigned' を設定
+        if (selectEl.id === 'caseStatus') {
+          selectInstance.value = 'Assigned';
+        }
+      } catch (e) {
+        console.warn("Error resetting select:", e);
+      }
+    });
+
+    // MDC TextField のリセット
+    form.querySelectorAll('.mdc-text-field').forEach(tfEl => {
+      try {
+        let tfInstance = null;
+        if (tfEl.id && mdcTextFieldComponents[tfEl.id]) {
+          tfInstance = mdcTextFieldComponents[tfEl.id];
+        } else {
+          tfInstance = new mdc.textField.MDCTextField(tfEl);
+        }
+
+        // 読み取り専用でなければクリア
+        if (!tfInstance.disabled) {
+          tfInstance.value = '';
+        }
+
+        // 必須項目の中で特定のフィールドの初期値を設定
+        if (tfEl.id === 'firstAssigneeLdap') {
+          tfInstance.value = userInfo.ldap; // ユーザー情報のLDAP
+        } else if (tfEl.id === 'finalAssignee') {
+          tfInstance.value = userInfo.ldap; // ユーザー情報のLDAP
+        }
+      } catch (e) {
+        console.warn("Error resetting text field:", e);
+      }
+    });
+
+    // 日付と時刻を現在にリセット
+    const now = new Date();
+    const currentDate = formatDate(now);
+    const currentTime = formatTime(now);
+
+    try {
+      // 日付フィールドをリセット
+      const dateField = document.getElementById('caseOpenDate');
+      if (dateField) {
+        // フラットピッカーがある場合
+        const fpInstance = flatpickrInstances[dateField.id];
+        if (fpInstance) {
+          fpInstance.setDate(now, true);
+        } else {
+          // 通常のフィールド
+          dateField.value = currentDate;
+
+          // MDC TextField を更新
+          if (mdcTextFieldComponents['caseOpenDate-wrapper']) {
+            mdcTextFieldComponents['caseOpenDate-wrapper'].value = currentDate;
+          }
+        }
+      }
+
+      // 時間フィールドをリセット
+      const timeField = document.getElementById('caseOpenTime');
+      if (timeField) {
+        // フラットピッカーがある場合
+        const fpInstance = flatpickrInstances[timeField.id];
+        if (fpInstance) {
+          fpInstance.setDate(now, true);
+        } else {
+          // 通常のフィールド
+          timeField.value = currentTime;
+
+          // MDC TextField を更新
+          if (mdcTextFieldComponents['caseOpenTime-wrapper']) {
+            mdcTextFieldComponents['caseOpenTime-wrapper'].value = currentTime;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Error resetting date/time fields:", e);
+    }
+
+    // バリデーションメッセージをクリア
+    if (validationMessage) validationMessage.textContent = '';
+
+    showSnackbar('フォームがリセットされました', 'info', 2000);
+  }
+
+  /**
+   * 新規ケースを送信する
+   */
+  function submitNewCase() {
+    const form = document.getElementById('newCaseForm');
+    const validationMessage = document.getElementById('newCaseValidationMessage');
+    if (!form || !validationMessage) {
+      console.error("Form or validation message element not found.");
+      return;
+    }
+
+    validationMessage.textContent = ''; // メッセージをクリア
+    let isValid = true;
+    let firstInvalidField = null;
+
+    // --- バリデーション ---
+    // Text Fields (Required)
+    form.querySelectorAll('.mdc-text-field.mdc-text-field--required, .form-group.required .mdc-text-field').forEach(tfEl => {
+      try {
+        // MDCコンポーネントを取得
+        let tfInstance = null;
+        if (tfEl.id && mdcTextFieldComponents[tfEl.id]) {
+          tfInstance = mdcTextFieldComponents[tfEl.id];
+        } else {
+          tfInstance = new mdc.textField.MDCTextField(tfEl);
+        }
+
+        // 入力値がなければエラー
+        if (!tfInstance.value.trim()) {
+          isValid = false;
+          tfEl.classList.add('mdc-text-field--invalid');
+
+          // 最初の無効フィールドを記録
+          if (!firstInvalidField) {
+            const inputEl = tfEl.querySelector('input');
+            firstInvalidField = inputEl || tfEl;
+          }
+        } else {
+          tfEl.classList.remove('mdc-text-field--invalid');
+        }
+      } catch (e) {
+        console.warn("Error validating text field:", e);
+      }
+    });
+
+    // Selects (Required)
+    form.querySelectorAll('.mdc-select.mdc-select--required, .form-group.required .mdc-select').forEach(selectEl => {
+      try {
+        // MDCコンポーネントを取得
+        let selectInstance = null;
+        if (selectEl.id && mdcSelectComponents[selectEl.id]) {
+          selectInstance = mdcSelectComponents[selectEl.id];
+        } else {
+          selectInstance = new mdc.select.MDCSelect(selectEl);
+        }
+
+        // 選択肢が選ばれていなければエラー
+        if (!selectInstance.value) {
+          isValid = false;
+          selectEl.classList.add('mdc-select--invalid');
+
+          // 最初の無効フィールドを記録
+          if (!firstInvalidField) {
+            firstInvalidField = selectEl.querySelector('.mdc-select__anchor') || selectEl;
+          }
+        } else {
+          selectEl.classList.remove('mdc-select--invalid');
+        }
+      } catch (e) {
+        console.warn("Error validating select:", e);
+      }
+    });
+
+    // 日付形式チェック
+    const dateField = document.getElementById('caseOpenDate');
+    if (dateField && dateField.value) {
+      if (!/^\d{4}\/\d{2}\/\d{2}$/.test(dateField.value)) {
+        isValid = false;
+        const wrapper = dateField.closest('.mdc-text-field');
+        if (wrapper) wrapper.classList.add('mdc-text-field--invalid');
+
+        if (!firstInvalidField) firstInvalidField = dateField;
+        showSnackbar('日付は YYYY/MM/DD 形式で入力してください', 'warn');
+      }
+    }
+
+    // 時間形式チェック
+    const timeField = document.getElementById('caseOpenTime');
+    if (timeField && timeField.value) {
+      if (!/^\d{2}:\d{2}:\d{2}$/.test(timeField.value)) {
+        isValid = false;
+        const wrapper = timeField.closest('.mdc-text-field');
+        if (wrapper) wrapper.classList.add('mdc-text-field--invalid');
+
+        if (!firstInvalidField) firstInvalidField = timeField;
+        showSnackbar('時間は HH:MM:SS 形式で入力してください', 'warn');
+      }
+    }
+
+    if (!isValid) {
+      validationMessage.textContent = '必須項目(*)をすべて入力または選択してください。';
+
+      // 最初の無効フィールドにフォーカス
+      if (firstInvalidField) {
+        firstInvalidField.focus();
+
+        // スクロール位置調整
+        firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      return;
+    }
+
+    // --- データ収集 ---
+    const caseData = {};
+
+    // Text Fields
+    form.querySelectorAll('.mdc-text-field input').forEach(inputEl => {
+      caseData[inputEl.id] = inputEl.value.trim();
+    });
+
+    // Selects
+    form.querySelectorAll('.mdc-select').forEach(selectEl => {
+      try {
+        // MDCコンポーネントを取得
+        let selectInstance = null;
+        if (selectEl.id && mdcSelectComponents[selectEl.id]) {
+          selectInstance = mdcSelectComponents[selectEl.id];
+        } else {
+          selectInstance = new mdc.select.MDCSelect(selectEl);
+        }
+
+        caseData[selectEl.id] = selectInstance.value || null;
+      } catch (e) {
+        console.warn("Error getting select value:", e);
+      }
+    });
+
+    // Checkboxes
+    form.querySelectorAll('input[type="checkbox"]').forEach(cbEl => {
+      caseData[cbEl.id] = cbEl.checked;
+    });
+
+    // 不要なキーを削除 (例: firstAssigneeLdap)
+    delete caseData['firstAssigneeLdap'];
+
+    console.log('Submitting new case data:', caseData);
+
+    // --- 送信処理 ---
+    // ボタンを無効化し、ローディング表示
+    const submitBtn = document.getElementById('submitNewCaseBtn');
+    const resetBtn = document.getElementById('resetNewCaseBtn');
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.querySelector('.mdc-button__label').textContent = '送信中...';
+      submitBtn.querySelector('.material-icons-outlined').textContent = 'hourglass_empty';
+    }
+    if (resetBtn) resetBtn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(result => {
+        // ボタンを元に戻す
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.querySelector('.mdc-button__label').textContent = '送信';
+          submitBtn.querySelector('.material-icons-outlined').textContent = 'send';
+        }
+        if (resetBtn) resetBtn.disabled = false;
+
+        if (result.success) {
+          showSnackbar(result.message || 'ケースが正常に追加されました。', 'success');
+          resetNewCaseForm(); // フォームをリセット
+
+          // アニメーション付きのサクセスメッセージ表示
+          const successMessage = document.createElement('div');
+          successMessage.className = 'success-message';
+          successMessage.innerHTML = `
+          <i class="material-icons-outlined" style="font-size: 48px; color: var(--md-sys-color-tertiary); margin-bottom: 16px;">task_alt</i>
+          <p style="font-size: 18px; font-weight: 500; margin-bottom: 8px;">ケースが正常に登録されました</p>
+          <p>Case ID: ${caseData.caseId}</p>
+        `;
+
+          // 成功メッセージをフォームの上部に挿入
+          const formContainer = document.getElementById('newCaseFormContainer');
+          if (formContainer) {
+            formContainer.prepend(successMessage);
+
+            // 5秒後に成功メッセージを消す
+            setTimeout(() => {
+              successMessage.style.opacity = '0';
+              setTimeout(() => successMessage.remove(), 500);
+            }, 5000);
+          }
+
+          // Live Modeでなければダッシュボードタブに切り替えて更新
+          if (!document.body.classList.contains('live-mode')) {
+            if (mdcTabBar) {
+              const dashboardTabIndex = Array.from(mdcTabBar.root.querySelectorAll('.mdc-tab')).findIndex(tab => tab.dataset.tabId === 'dashboard');
+              if (dashboardTabIndex !== -1) {
+                setTimeout(() => {
+                  mdcTabBar.activateTab(dashboardTabIndex);
+                }, 1000);
+              }
+            }
+          }
+        } else {
+          showSnackbar(result.message || 'ケースの追加に失敗しました。', 'error');
+          validationMessage.textContent = result.message || 'サーバー側でエラーが発生しました。';
+        }
+      })
+      .withFailureHandler(error => {
+        // ボタンを元に戻す
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.querySelector('.mdc-button__label').textContent = '送信';
+          submitBtn.querySelector('.material-icons-outlined').textContent = 'send';
+        }
+        if (resetBtn) resetBtn.disabled = false;
+
+        showSnackbar(`送信エラー: ${error.message}`, 'error');
+        validationMessage.textContent = `送信中にエラーが発生しました: ${error.message}`;
+      })
+      .addNewCase(caseData); // GAS関数呼び出し
+  }
+</script>

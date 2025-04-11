@@ -1,0 +1,1759 @@
+<style>
+    /* styles.html - アプリケーション全体のスタイル定義 */
+    /* Google Material Design 3 (MDC Web) ベース */
+
+    /* ------------------------- */
+    /* --- フォントと基本設定 --- */
+    /* ------------------------- */
+    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Text:wght@400;500;700&family=Material+Symbols+Rounded&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap');
+
+    :root {
+        /* --- カラーパレット (Light Theme) --- */
+        --md-sys-color-primary-light: #1a73e8;
+        /* Google Blue */
+        --md-sys-color-on-primary-light: #ffffff;
+        --md-sys-color-primary-container-light: #e8f0fe;
+        --md-sys-color-on-primary-container-light: #0d3d82;
+        --md-sys-color-secondary-light: #e8710a;
+        /* Google Orange */
+        --md-sys-color-on-secondary-light: #ffffff;
+        --md-sys-color-secondary-container-light: #ffdbbc;
+        --md-sys-color-on-secondary-container-light: #692c00;
+        --md-sys-color-tertiary-light: #188038;
+        /* Google Green */
+        --md-sys-color-on-tertiary-light: #ffffff;
+        --md-sys-color-tertiary-container-light: #c2f0c5;
+        --md-sys-color-on-tertiary-container-light: #084019;
+        --md-sys-color-surface-light: #ffffff;
+        --md-sys-color-on-surface-light: #1f1f1f;
+        --md-sys-color-surface-variant-light: #f8f9fa;
+        --md-sys-color-on-surface-variant-light: #444746;
+        /* For secondary text, icons */
+        --md-sys-color-background-light: #f8f9fa;
+        /* Light grey */
+        --md-sys-color-on-background-light: #1f1f1f;
+        --md-sys-color-error-light: #d93025;
+        /* Google Red */
+        --md-sys-color-on-error-light: #ffffff;
+        --md-sys-color-success-light: #188038;
+        /* Google Green */
+        --md-sys-color-on-success-light: #ffffff;
+        --md-sys-color-warning-light: #f29900;
+        /* Google Yellow */
+        --md-sys-color-on-warning-light: #1f1f1f;
+        --md-sys-color-info-light: #4285f4;
+        /* Google Blue (lighter) */
+        --md-sys-color-on-info-light: #ffffff;
+        --md-sys-color-outline-light: #dadce0;
+        --md-sys-color-outline-variant-light: #e1e3e1;
+        --md-sys-color-inverse-surface-light: #121212;
+        --md-sys-color-inverse-on-surface-light: #f1f3f4;
+        --md-sys-color-shadow-light: rgba(0, 0, 0, 0.2);
+        --md-sys-color-surface-tint-light: rgba(26, 115, 232, 0.08);
+
+        /* --- カラーパレット (Dark Theme) --- */
+        --md-sys-color-primary-dark: #8ab4f8;
+        /* Lighter Blue */
+        --md-sys-color-on-primary-dark: #0d3d82;
+        --md-sys-color-primary-container-dark: #175cde;
+        --md-sys-color-on-primary-container-dark: #e8f0fe;
+        --md-sys-color-secondary-dark: #ffb980;
+        /* Lighter Orange */
+        --md-sys-color-on-secondary-dark: #492100;
+        --md-sys-color-secondary-container-dark: #693c0c;
+        --md-sys-color-on-secondary-container-dark: #ffdbbc;
+        --md-sys-color-tertiary-dark: #7dcb85;
+        /* Lighter Green */
+        --md-sys-color-on-tertiary-dark: #084019;
+        --md-sys-color-tertiary-container-dark: #0d652a;
+        --md-sys-color-on-tertiary-container-dark: #c2f0c5;
+        --md-sys-color-surface-dark: #202124;
+        --md-sys-color-on-surface-dark: #e8eaed;
+        --md-sys-color-surface-variant-dark: #2d2e31;
+        --md-sys-color-on-surface-variant-dark: #bdc1c6;
+        /* For secondary text, icons */
+        --md-sys-color-background-dark: #121212;
+        /* Near Black */
+        --md-sys-color-on-background-dark: #e8eaed;
+        --md-sys-color-error-dark: #f28b82;
+        /* Lighter Red */
+        --md-sys-color-on-error-dark: #601410;
+        --md-sys-color-success-dark: #81c995;
+        /* Lighter Green */
+        --md-sys-color-on-success-dark: #0c401d;
+        --md-sys-color-warning-dark: #fdd663;
+        /* Lighter Yellow */
+        --md-sys-color-on-warning-dark: #3c2f00;
+        --md-sys-color-info-dark: #8ab4f8;
+        /* Lighter Blue */
+        --md-sys-color-on-info-dark: #0d3d82;
+        --md-sys-color-outline-dark: #555659;
+        --md-sys-color-outline-variant-dark: #444746;
+        --md-sys-color-inverse-surface-dark: #e8eaed;
+        --md-sys-color-inverse-on-surface-dark: #202124;
+        --md-sys-color-shadow-dark: rgba(0, 0, 0, 0.3);
+        --md-sys-color-surface-tint-dark: rgba(138, 180, 248, 0.08);
+
+        /* --- タイポグラフィ --- */
+        --md-sys-typescale-display-large-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-display-large-weight: 400;
+        --md-sys-typescale-display-large-size: 57px;
+        --md-sys-typescale-display-large-line-height: 64px;
+        --md-sys-typescale-display-large-tracking: -0.25px;
+
+        --md-sys-typescale-display-medium-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-display-medium-weight: 400;
+        --md-sys-typescale-display-medium-size: 45px;
+        --md-sys-typescale-display-medium-line-height: 52px;
+        --md-sys-typescale-display-medium-tracking: 0px;
+
+        --md-sys-typescale-display-small-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-display-small-weight: 400;
+        --md-sys-typescale-display-small-size: 36px;
+        --md-sys-typescale-display-small-line-height: 44px;
+        --md-sys-typescale-display-small-tracking: 0px;
+
+        --md-sys-typescale-headline-large-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-headline-large-weight: 400;
+        --md-sys-typescale-headline-large-size: 32px;
+        --md-sys-typescale-headline-large-line-height: 40px;
+        --md-sys-typescale-headline-large-tracking: 0px;
+
+        --md-sys-typescale-headline-medium-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-headline-medium-weight: 400;
+        --md-sys-typescale-headline-medium-size: 28px;
+        --md-sys-typescale-headline-medium-line-height: 36px;
+        --md-sys-typescale-headline-medium-tracking: 0px;
+
+        --md-sys-typescale-headline-small-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-headline-small-weight: 400;
+        --md-sys-typescale-headline-small-size: 24px;
+        --md-sys-typescale-headline-small-line-height: 32px;
+        --md-sys-typescale-headline-small-tracking: 0px;
+
+        --md-sys-typescale-title-large-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-title-large-weight: 500;
+        --md-sys-typescale-title-large-size: 22px;
+        --md-sys-typescale-title-large-line-height: 28px;
+        --md-sys-typescale-title-large-tracking: 0px;
+
+        --md-sys-typescale-title-medium-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-title-medium-weight: 500;
+        --md-sys-typescale-title-medium-size: 16px;
+        --md-sys-typescale-title-medium-line-height: 24px;
+        --md-sys-typescale-title-medium-tracking: 0.15px;
+
+        --md-sys-typescale-title-small-font-family: 'Google Sans', 'Roboto', sans-serif;
+        --md-sys-typescale-title-small-weight: 500;
+        --md-sys-typescale-title-small-size: 14px;
+        --md-sys-typescale-title-small-line-height: 20px;
+        --md-sys-typescale-title-small-tracking: 0.1px;
+
+        --md-sys-typescale-body-large-font-family: 'Google Sans Text', 'Roboto', sans-serif;
+        --md-sys-typescale-body-large-weight: 400;
+        --md-sys-typescale-body-large-size: 16px;
+        --md-sys-typescale-body-large-line-height: 24px;
+        --md-sys-typescale-body-large-tracking: 0.15px;
+
+        --md-sys-typescale-body-medium-font-family: 'Google Sans Text', 'Roboto', sans-serif;
+        --md-sys-typescale-body-medium-weight: 400;
+        --md-sys-typescale-body-medium-size: 14px;
+        --md-sys-typescale-body-medium-line-height: 20px;
+        --md-sys-typescale-body-medium-tracking: 0.25px;
+
+        --md-sys-typescale-body-small-font-family: 'Google Sans Text', 'Roboto', sans-serif;
+        --md-sys-typescale-body-small-weight: 400;
+        --md-sys-typescale-body-small-size: 12px;
+        --md-sys-typescale-body-small-line-height: 16px;
+        --md-sys-typescale-body-small-tracking: 0.4px;
+
+        --md-sys-typescale-label-large-font-family: 'Google Sans Text', 'Roboto', sans-serif;
+        --md-sys-typescale-label-large-weight: 500;
+        --md-sys-typescale-label-large-size: 14px;
+        --md-sys-typescale-label-large-line-height: 20px;
+        --md-sys-typescale-label-large-tracking: 0.1px;
+
+        --md-sys-typescale-label-medium-font-family: 'Google Sans Text', 'Roboto', sans-serif;
+        --md-sys-typescale-label-medium-weight: 500;
+        --md-sys-typescale-label-medium-size: 12px;
+        --md-sys-typescale-label-medium-line-height: 16px;
+        --md-sys-typescale-label-medium-tracking: 0.5px;
+
+        --md-sys-typescale-label-small-font-family: 'Google Sans Text', 'Roboto', sans-serif;
+        --md-sys-typescale-label-small-weight: 500;
+        --md-sys-typescale-label-small-size: 11px;
+        --md-sys-typescale-label-small-line-height: 16px;
+        --md-sys-typescale-label-small-tracking: 0.5px;
+
+        /* --- シェイプ --- */
+        --md-sys-shape-corner-none: 0px;
+        --md-sys-shape-corner-extra-small: 4px;
+        --md-sys-shape-corner-small: 8px;
+        --md-sys-shape-corner-medium: 12px;
+        --md-sys-shape-corner-large: 16px;
+        --md-sys-shape-corner-extra-large: 28px;
+        --md-sys-shape-corner-full: 999px;
+
+        /* --- スペーシング --- */
+        --md-sys-spacing-track: 4px;
+        --md-sys-spacing-xs: 4px;
+        --md-sys-spacing-s: 8px;
+        --md-sys-spacing-m: 16px;
+        --md-sys-spacing-l: 24px;
+        --md-sys-spacing-xl: 32px;
+        --md-sys-spacing-xxl: 48px;
+        --md-sys-spacing-xxxl: 64px;
+
+        /* --- Z-index --- */
+        --md-sys-zindex-base: 1;
+        --md-sys-zindex-card: 2;
+        --md-sys-zindex-dialog: 10;
+        --md-sys-zindex-snackbar: 15;
+        --md-sys-zindex-menu: 20;
+        --md-sys-zindex-tooltip: 30;
+        --md-sys-zindex-header: 100;
+        --md-sys-zindex-loader: 1000;
+
+        /* --- アニメーション --- */
+        --md-sys-motion-duration-short1: 100ms;
+        --md-sys-motion-duration-short2: 150ms;
+        --md-sys-motion-duration-short3: 175ms;
+        --md-sys-motion-duration-short4: 200ms;
+        --md-sys-motion-duration-medium1: 250ms;
+        --md-sys-motion-duration-medium2: 300ms;
+        --md-sys-motion-duration-medium3: 350ms;
+        --md-sys-motion-duration-medium4: 400ms;
+        --md-sys-motion-duration-long1: 450ms;
+        --md-sys-motion-duration-long2: 500ms;
+        --md-sys-motion-duration-long3: 550ms;
+        --md-sys-motion-duration-long4: 600ms;
+        --md-sys-motion-duration-extra-long1: 700ms;
+        --md-sys-motion-duration-extra-long2: 800ms;
+        --md-sys-motion-duration-extra-long3: 900ms;
+        --md-sys-motion-duration-extra-long4: 1000ms;
+        --md-sys-motion-easing-linear: cubic-bezier(0, 0, 1, 1);
+        --md-sys-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --md-sys-motion-easing-standard-accelerate: cubic-bezier(0.4, 0, 1, 1);
+        --md-sys-motion-easing-standard-decelerate: cubic-bezier(0, 0, 0.2, 1);
+        --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+        --md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+        --md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+
+        /* --- RGB値の定義 (JSONで動的に設定する値) --- */
+        --md-sys-color-primary-light-rgb: 26, 115, 232;
+        --md-sys-color-secondary-light-rgb: 232, 113, 10;
+        --md-sys-color-tertiary-light-rgb: 24, 128, 56;
+        --md-sys-color-error-light-rgb: 217, 48, 37;
+        --md-sys-color-warning-light-rgb: 242, 153, 0;
+        --md-sys-color-primary-dark-rgb: 138, 180, 248;
+        --md-sys-color-secondary-dark-rgb: 255, 185, 128;
+        --md-sys-color-tertiary-dark-rgb: 125, 203, 133;
+        --md-sys-color-error-dark-rgb: 242, 139, 130;
+        --md-sys-color-warning-dark-rgb: 253, 214, 99;
+
+        /* --- デフォルトテーマ (Light) --- */
+        --md-sys-color-primary: var(--md-sys-color-primary-light);
+        --md-sys-color-on-primary: var(--md-sys-color-on-primary-light);
+        --md-sys-color-primary-container: var(--md-sys-color-primary-container-light);
+        --md-sys-color-on-primary-container: var(--md-sys-color-on-primary-container-light);
+        --md-sys-color-secondary: var(--md-sys-color-secondary-light);
+        --md-sys-color-on-secondary: var(--md-sys-color-on-secondary-light);
+        --md-sys-color-secondary-container: var(--md-sys-color-secondary-container-light);
+        --md-sys-color-on-secondary-container: var(--md-sys-color-on-secondary-container-light);
+        --md-sys-color-tertiary: var(--md-sys-color-tertiary-light);
+        --md-sys-color-on-tertiary: var(--md-sys-color-on-tertiary-light);
+        --md-sys-color-tertiary-container: var(--md-sys-color-tertiary-container-light);
+        --md-sys-color-on-tertiary-container: var(--md-sys-color-on-tertiary-container-light);
+        --md-sys-color-surface: var(--md-sys-color-surface-light);
+        --md-sys-color-on-surface: var(--md-sys-color-on-surface-light);
+        --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-light);
+        --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-light);
+        --md-sys-color-background: var(--md-sys-color-background-light);
+        --md-sys-color-on-background: var(--md-sys-color-on-background-light);
+        --md-sys-color-error: var(--md-sys-color-error-light);
+        --md-sys-color-on-error: var(--md-sys-color-on-error-light);
+        --md-sys-color-success: var(--md-sys-color-success-light);
+        --md-sys-color-on-success: var(--md-sys-color-on-success-light);
+        --md-sys-color-warning: var(--md-sys-color-warning-light);
+        --md-sys-color-on-warning: var(--md-sys-color-on-warning-light);
+        --md-sys-color-info: var(--md-sys-color-info-light);
+        --md-sys-color-on-info: var(--md-sys-color-on-info-light);
+        --md-sys-color-outline: var(--md-sys-color-outline-light);
+        --md-sys-color-outline-variant: var(--md-sys-color-outline-variant-light);
+        --md-sys-color-inverse-surface: var(--md-sys-color-inverse-surface-light);
+        --md-sys-color-inverse-on-surface: var(--md-sys-color-inverse-on-surface-light);
+        --md-sys-color-shadow: var(--md-sys-color-shadow-light);
+        --md-sys-color-surface-tint: var(--md-sys-color-surface-tint-light);
+        --md-sys-color-primary-rgb: var(--md-sys-color-primary-light-rgb);
+        --md-sys-color-secondary-rgb: var(--md-sys-color-secondary-light-rgb);
+        --md-sys-color-tertiary-rgb: var(--md-sys-color-tertiary-light-rgb);
+        --md-sys-color-error-rgb: var(--md-sys-color-error-light-rgb);
+        --md-sys-color-warning-rgb: var(--md-sys-color-warning-light-rgb);
+
+        /* MDCテーマ変数の上書き */
+        --mdc-theme-primary: var(--md-sys-color-primary);
+        --mdc-theme-on-primary: var(--md-sys-color-on-primary);
+        --mdc-theme-secondary: var(--md-sys-color-secondary);
+        --mdc-theme-on-secondary: var(--md-sys-color-on-secondary);
+        --mdc-theme-surface: var(--md-sys-color-surface);
+        --mdc-theme-on-surface: var(--md-sys-color-on-surface);
+        --mdc-theme-background: var(--md-sys-color-background);
+        --mdc-theme-on-background: var(--md-sys-color-on-background);
+        --mdc-theme-error: var(--md-sys-color-error);
+        --mdc-theme-on-error: var(--md-sys-color-on-error);
+        --mdc-typography-font-family: var(--md-sys-typescale-body-large-font-family);
+        --mdc-shape-small: var(--md-sys-shape-corner-small);
+        --mdc-shape-medium: var(--md-sys-shape-corner-medium);
+        --mdc-shape-large: var(--md-sys-shape-corner-large);
+    }
+
+    /* --- ダークテーマ --- */
+    body.dark-theme {
+        --md-sys-color-primary: var(--md-sys-color-primary-dark);
+        --md-sys-color-on-primary: var(--md-sys-color-on-primary-dark);
+        --md-sys-color-primary-container: var(--md-sys-color-primary-container-dark);
+        --md-sys-color-on-primary-container: var(--md-sys-color-on-primary-container-dark);
+        --md-sys-color-secondary: var(--md-sys-color-secondary-dark);
+        --md-sys-color-on-secondary: var(--md-sys-color-on-secondary-dark);
+        --md-sys-color-secondary-container: var(--md-sys-color-secondary-container-dark);
+        --md-sys-color-on-secondary-container: var(--md-sys-color-on-secondary-container-dark);
+        --md-sys-color-tertiary: var(--md-sys-color-tertiary-dark);
+        --md-sys-color-on-tertiary: var(--md-sys-color-on-tertiary-dark);
+        --md-sys-color-tertiary-container: var(--md-sys-color-tertiary-container-dark);
+        --md-sys-color-on-tertiary-container: var(--md-sys-color-on-tertiary-container-dark);
+        --md-sys-color-surface: var(--md-sys-color-surface-dark);
+        --md-sys-color-on-surface: var(--md-sys-color-on-surface-dark);
+        --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-dark);
+        --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-dark);
+        --md-sys-color-background: var(--md-sys-color-background-dark);
+        --md-sys-color-on-background: var(--md-sys-color-on-background-dark);
+        --md-sys-color-error: var(--md-sys-color-error-dark);
+        --md-sys-color-on-error: var(--md-sys-color-on-error-dark);
+        --md-sys-color-success: var(--md-sys-color-success-dark);
+        --md-sys-color-on-success: var(--md-sys-color-on-success-dark);
+        --md-sys-color-warning: var(--md-sys-color-warning-dark);
+        --md-sys-color-on-warning: var(--md-sys-color-on-warning-dark);
+        --md-sys-color-info: var(--md-sys-color-info-dark);
+        --md-sys-color-on-info: var(--md-sys-color-on-info-dark);
+        --md-sys-color-outline: var(--md-sys-color-outline-dark);
+        --md-sys-color-outline-variant: var(--md-sys-color-outline-variant-dark);
+        --md-sys-color-inverse-surface: var(--md-sys-color-inverse-surface-dark);
+        --md-sys-color-inverse-on-surface: var(--md-sys-color-inverse-on-surface-dark);
+        --md-sys-color-shadow: var(--md-sys-color-shadow-dark);
+        --md-sys-color-surface-tint: var(--md-sys-color-surface-tint-dark);
+        --md-sys-color-primary-rgb: var(--md-sys-color-primary-dark-rgb);
+        --md-sys-color-secondary-rgb: var(--md-sys-color-secondary-dark-rgb);
+        --md-sys-color-tertiary-rgb: var(--md-sys-color-tertiary-dark-rgb);
+        --md-sys-color-error-rgb: var(--md-sys-color-error-dark-rgb);
+        --md-sys-color-warning-rgb: var(--md-sys-color-warning-dark-rgb);
+    }
+
+    /* --- グローバルスタイル --- */
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html {
+        /* Smooth scrolling */
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: var(--md-sys-typescale-body-large-font-family);
+        font-size: var(--md-sys-typescale-body-large-size);
+        font-weight: var(--md-sys-typescale-body-large-weight);
+        line-height: var(--md-sys-typescale-body-large-line-height);
+        letter-spacing: var(--md-sys-typescale-body-large-tracking);
+        background-color: var(--md-sys-color-background);
+        color: var(--md-sys-color-on-background);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transition: background-color var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard),
+            color var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    /* ------------------------ */
+    /* --- レイアウトコンテナ --- */
+    /* ------------------------ */
+    .app-container {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        width: 100%;
+    }
+
+    .app-header {
+        position: sticky;
+        /* ヘッダーを固定 */
+        top: 0;
+        z-index: var(--md-sys-zindex-header);
+        background-color: var(--md-sys-color-surface);
+        color: var(--md-sys-color-on-surface);
+        box-shadow: 0 1px 2px 0 var(--md-sys-color-shadow);
+        /* 控えめな影 */
+        transition: background-color var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--md-sys-spacing-s) var(--md-sys-spacing-l);
+        max-width: 1600px;
+        /* 最大幅を設定 */
+        margin: 0 auto;
+        /* 中央揃え */
+    }
+
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-m);
+        color: var(--md-sys-color-primary);
+        /* ロゴとタイトルにプライマリカラー */
+    }
+
+    .logo-icon {
+        font-size: 32px;
+        /* Material Icons のサイズ */
+        width: 32px;
+        height: 32px;
+    }
+
+    .app-title {
+        font-family: var(--md-sys-typescale-title-large-font-family);
+        font-size: var(--md-sys-typescale-title-large-size);
+        font-weight: var(--md-sys-typescale-title-large-weight);
+        letter-spacing: 0.1px;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    .user-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-m);
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-s);
+        font-size: var(--md-sys-typescale-body-medium-size);
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .user-email {
+        font-weight: 500;
+        max-width: 200px;
+        /* 長すぎる場合に省略 */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .theme-toggle {
+        /* MDC Icon Button を使用 */
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    /* タブバー */
+    .tab-container {
+        background-color: var(--md-sys-color-surface);
+        border-bottom: 1px solid var(--md-sys-color-outline);
+        overflow-x: auto;
+        /* タブが多い場合にスクロール */
+    }
+
+    .mdc-tab-bar {
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    .mdc-tab {
+        height: 48px;
+    }
+
+    .mdc-tab--active .mdc-tab__text-label {
+        color: var(--md-sys-color-primary);
+        font-weight: 500;
+    }
+
+    .mdc-tab__text-label {
+        text-transform: none;
+        /* 大文字変換しない */
+        font-family: var(--md-sys-typescale-title-small-font-family);
+        font-size: var(--md-sys-typescale-title-small-size);
+        font-weight: var(--md-sys-typescale-title-small-weight);
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    /* ダークモード時のタブテキスト色修正 */
+    body.dark-theme .mdc-tab__text-label {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .mdc-tab-indicator__content--underline {
+        border-color: var(--md-sys-color-primary);
+    }
+
+    /* メインコンテンツ */
+    .app-content {
+        flex-grow: 1;
+        padding: var(--md-sys-spacing-l);
+        max-width: 1600px;
+        width: 100%;
+        margin: 0 auto var(--md-sys-spacing-xl) auto;
+        /* 下部にマージンを追加 */
+    }
+
+    .tab-content {
+        display: none;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity var(--md-sys-motion-duration-medium3) var(--md-sys-motion-easing-standard),
+            transform var(--md-sys-motion-duration-medium3) var(--md-sys-motion-easing-standard);
+    }
+
+    .tab-content.active {
+        display: block;
+        opacity: 1;
+        transform: translateY(0);
+        animation: fadeIn var(--md-sys-motion-duration-medium3) var(--md-sys-motion-easing-standard) forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--md-sys-spacing-l);
+        padding-bottom: var(--md-sys-spacing-s);
+        border-bottom: 1px solid var(--md-sys-color-outline);
+    }
+
+    .section-header h2 {
+        font-family: var(--md-sys-typescale-headline-small-font-family);
+        font-size: var(--md-sys-typescale-headline-small-size);
+        font-weight: var(--md-sys-typescale-headline-small-weight);
+        line-height: var(--md-sys-typescale-headline-small-line-height);
+        color: var(--md-sys-color-on-surface);
+        margin: 0;
+    }
+
+    /* --------------------- */
+    /* --- コンポーネント --- */
+    /* --------------------- */
+
+    /* --- カード (Case Card) --- */
+    .case-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        /* レスポンシブなグリッド */
+        gap: var(--md-sys-spacing-l);
+    }
+
+    .mdc-card.case-card {
+        --mdc-card-outline-color: var(--md-sys-color-outline-variant);
+        border-radius: var(--md-sys-shape-corner-large);
+        /* 角丸を大きく */
+        overflow: hidden;
+        /* リップルエフェクトのため */
+        background-color: var(--md-sys-color-surface);
+        transition: transform var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
+            box-shadow var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);
+        position: relative;
+        /* ::before のため */
+        box-shadow: 0 1px 3px 0 var(--md-sys-color-shadow);
+    }
+
+    .mdc-card.case-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px 0 var(--md-sys-color-shadow), 0 6px 20px 0 rgba(0, 0, 0, 0.09);
+    }
+
+    /* カード左のアクセントライン */
+    .mdc-card.case-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 6px;
+        height: 100%;
+        background-color: var(--md-sys-color-primary);
+        opacity: 0.9;
+        z-index: 2;
+        transition: opacity var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard),
+            background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+    }
+
+    .mdc-card.case-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--md-sys-color-surface-tint);
+        z-index: 1;
+        opacity: 0;
+        transition: opacity var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+    }
+
+    .mdc-card.case-card:hover::after {
+        opacity: 1;
+    }
+
+    .case-card .mdc-card__content {
+        /* MDC Card の padding を利用 */
+        padding: var(--md-sys-spacing-l);
+        padding-left: calc(var(--md-sys-spacing-l) + 8px);
+        /* 左の線分のスペースを追加 */
+        position: relative;
+        z-index: 3;
+        /* ::afterの上に表示 */
+    }
+
+    .case-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        /* ステータスが複数行になる場合を考慮 */
+        margin-bottom: var(--md-sys-spacing-m);
+        gap: var(--md-sys-spacing-m);
+    }
+
+    .case-id {
+        font-family: var(--md-sys-typescale-title-medium-font-family);
+        font-size: var(--md-sys-typescale-title-medium-size);
+        font-weight: var(--md-sys-typescale-title-medium-weight);
+        line-height: var(--md-sys-typescale-title-medium-line-height);
+        color: var(--md-sys-color-primary);
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-s);
+    }
+
+    .case-id a {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color var(--md-sys-motion-duration-short2), color var(--md-sys-motion-duration-short2);
+    }
+
+    .case-id a:hover {
+        border-bottom-color: var(--md-sys-color-primary);
+        color: var(--md-sys-color-primary);
+    }
+
+    .case-status {
+        padding: var(--md-sys-spacing-xs) var(--md-sys-spacing-m);
+        border-radius: var(--md-sys-shape-corner-full);
+        /* Pill shape */
+        font-family: var(--md-sys-typescale-label-medium-font-family);
+        font-size: var(--md-sys-typescale-label-medium-size);
+        font-weight: var(--md-sys-typescale-label-medium-weight);
+        line-height: var(--md-sys-typescale-label-medium-line-height);
+        letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    /* ステータスごとの色 */
+    .status-assigned {
+        background-color: rgba(var(--md-sys-color-info-rgb), 0.1);
+        color: var(--md-sys-color-info);
+    }
+
+    .status-solution-offered {
+        background-color: rgba(var(--md-sys-color-warning-rgb), 0.15);
+        color: var(--md-sys-color-warning);
+    }
+
+    .status-finished {
+        background-color: rgba(var(--md-sys-color-tertiary-rgb), 0.1);
+        color: var(--md-sys-color-tertiary);
+    }
+
+    .case-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        /* 可変グリッド */
+        gap: var(--md-sys-spacing-m);
+        margin-bottom: var(--md-sys-spacing-m);
+        font-size: var(--md-sys-typescale-body-medium-size);
+    }
+
+    .info-label {
+        font-family: var(--md-sys-typescale-label-medium-font-family);
+        font-size: var(--md-sys-typescale-label-medium-size);
+        font-weight: var(--md-sys-typescale-label-medium-weight);
+        line-height: var(--md-sys-typescale-label-medium-line-height);
+        letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+        color: var(--md-sys-color-on-surface-variant);
+        margin-bottom: var(--md-sys-spacing-xs);
+        text-transform: uppercase;
+    }
+
+    .info-value {
+        font-weight: 400;
+        color: var(--md-sys-color-on-surface);
+    }
+
+    /* タイマー */
+    .case-timer {
+        margin-top: var(--md-sys-spacing-l);
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-s);
+        font-family: 'Roboto Mono', monospace;
+        /* 等幅フォント */
+        font-size: var(--md-sys-typescale-body-large-size);
+        font-weight: 500;
+        padding: var(--md-sys-spacing-s) var(--md-sys-spacing-m);
+        background-color: var(--md-sys-color-surface-variant);
+        border-radius: var(--md-sys-shape-corner-medium);
+        transition: background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+    }
+
+    .timer-icon {
+        font-size: 20px;
+        /* 24px */
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .timer-value {
+        /* デフォルトの色 */
+        color: var(--md-sys-color-on-surface);
+        transition: color var(--md-sys-motion-duration-medium2);
+    }
+
+    .timer-value.timer-warning {
+        color: var(--md-sys-color-warning);
+    }
+
+    .timer-value.timer-danger {
+        color: var(--md-sys-color-error);
+    }
+
+    .timer-value.timer-missed {
+        color: var(--md-sys-color-error);
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+
+
+    .case-actions {
+        margin-top: var(--md-sys-spacing-l);
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--md-sys-spacing-s);
+    }
+
+    /* --- フォーム --- */
+    .form-container {
+        background-color: var(--md-sys-color-surface);
+        border-radius: var(--md-sys-shape-corner-large);
+        padding: var(--md-sys-spacing-xl);
+        border: 1px solid var(--md-sys-color-outline);
+        margin-bottom: var(--md-sys-spacing-xl);
+        box-shadow: 0 2px 4px 0 var(--md-sys-color-shadow);
+        transition: box-shadow var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+    }
+
+    .case-form {
+        display: flex;
+        flex-direction: column;
+        gap: var(--md-sys-spacing-xl);
+    }
+
+    .form-section {
+        animation: fadeIn var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
+    }
+
+    .form-section-title {
+        font-family: var(--md-sys-typescale-title-medium-font-family);
+        font-size: var(--md-sys-typescale-title-medium-size);
+        font-weight: var(--md-sys-typescale-title-medium-weight);
+        line-height: var(--md-sys-typescale-title-medium-line-height);
+        color: var(--md-sys-color-primary);
+        margin-bottom: var(--md-sys-spacing-l);
+        padding-bottom: var(--md-sys-spacing-s);
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        /* レスポンシブグリッド */
+        gap: var(--md-sys-spacing-l);
+    }
+
+    /* MDCコンポーネントの調整 */
+    .form-group {
+        position: relative;
+        /* 必須マークのため */
+        margin-bottom: var(--md-sys-spacing-s);
+    }
+
+    /* 必須項目の表示 */
+    .form-group.required .mdc-text-field--outlined .mdc-floating-label::after,
+    .form-group.required .mdc-select--outlined .mdc-floating-label::after {
+        content: " *";
+        color: var(--md-sys-color-error);
+        font-weight: bold;
+        padding-left: 2px;
+    }
+
+    .mdc-text-field {
+        width: 100%;
+        background-color: var(--md-sys-color-surface);
+    }
+
+    .mdc-text-field--outlined .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-text-field--outlined .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-text-field--outlined .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-outline);
+    }
+
+    .mdc-text-field:not(.mdc-text-field--disabled):hover .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-text-field:not(.mdc-text-field--disabled):hover .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-text-field:not(.mdc-text-field--disabled):hover .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-on-surface);
+    }
+
+    .mdc-text-field--outlined .mdc-floating-label {
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-primary);
+        border-width: 2px;
+    }
+
+    .mdc-text-field--outlined.mdc-text-field--focused .mdc-floating-label {
+        color: var(--md-sys-color-primary);
+    }
+
+    .mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-floating-label {
+        color: var(--md-sys-color-error);
+    }
+
+    .mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-text-field--invalid:not(.mdc-text-field--disabled) .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-error);
+    }
+
+    .mdc-text-field__input {
+        color: var(--md-sys-color-on-surface);
+        caret-color: var(--md-sys-color-primary);
+    }
+
+    .mdc-select {
+        width: 100%;
+        background-color: var(--md-sys-color-surface);
+    }
+
+    .mdc-select__anchor {
+        width: 100%;
+        background-color: var(--md-sys-color-surface);
+    }
+
+    .mdc-select--outlined .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-select--outlined .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-select--outlined .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-outline);
+    }
+
+    .mdc-select:not(.mdc-select--disabled):hover .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-select:not(.mdc-select--disabled):hover .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-select:not(.mdc-select--disabled):hover .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-on-surface);
+    }
+
+    .mdc-select--outlined .mdc-floating-label {
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .mdc-select--outlined.mdc-select--focused .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-select--outlined.mdc-select--focused .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-select--outlined.mdc-select--focused .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-primary);
+        border-width: 2px;
+    }
+
+    .mdc-select--outlined.mdc-select--focused .mdc-floating-label {
+        color: var(--md-sys-color-primary);
+    }
+
+    .mdc-select--invalid:not(.mdc-select--disabled) .mdc-floating-label {
+        color: var(--md-sys-color-error);
+    }
+
+    .mdc-select--invalid:not(.mdc-select--disabled) .mdc-notched-outline .mdc-notched-outline__leading,
+    .mdc-select--invalid:not(.mdc-select--disabled) .mdc-notched-outline .mdc-notched-outline__notch,
+    .mdc-select--invalid:not(.mdc-select--disabled) .mdc-notched-outline .mdc-notched-outline__trailing {
+        border-color: var(--md-sys-color-error);
+    }
+
+    .mdc-select__selected-text {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .mdc-menu {
+        background-color: var(--md-sys-color-surface);
+        color: var(--md-sys-color-on-surface);
+        z-index: var(--md-sys-zindex-menu);
+    }
+
+    .mdc-list {
+        color: var(--md-sys-color-on-surface);
+        background-color: var(--md-sys-color-surface);
+    }
+
+    .mdc-list-item {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .mdc-list-item--selected {
+        color: var(--md-sys-color-primary);
+    }
+
+    .mdc-list-item:hover {
+        background-color: var(--md-sys-color-surface-variant);
+    }
+
+    .checkbox-group {
+        display: flex;
+        flex-wrap: wrap;
+        /* 狭い画面で折り返す */
+        gap: var(--md-sys-spacing-m);
+        margin-top: var(--md-sys-spacing-s);
+    }
+
+    .mdc-form-field {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .mdc-checkbox__native-control:enabled:checked~.mdc-checkbox__background,
+    .mdc-checkbox__native-control:enabled:indeterminate~.mdc-checkbox__background {
+        background-color: var(--md-sys-color-primary);
+        border-color: var(--md-sys-color-primary);
+    }
+
+    .mdc-checkbox__background {
+        border-color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .form-validation-message {
+        color: var(--md-sys-color-error);
+        font-size: var(--md-sys-typescale-body-small-size);
+        margin-top: var(--md-sys-spacing-m);
+        min-height: 1.2em;
+        /* メッセージがないときも高さを確保 */
+        text-align: right;
+    }
+
+    .buttons-container {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--md-sys-spacing-m);
+        margin-top: var(--md-sys-spacing-l);
+        border-top: 1px solid var(--md-sys-color-outline);
+        padding-top: var(--md-sys-spacing-l);
+    }
+
+    /* MDC Button スタイル調整 */
+    .mdc-button {
+        text-transform: none;
+        font-family: var(--md-sys-typescale-label-large-font-family);
+        font-size: var(--md-sys-typescale-label-large-size);
+        font-weight: var(--md-sys-typescale-label-large-weight);
+        letter-spacing: var(--md-sys-typescale-label-large-tracking);
+        height: 40px;
+        border-radius: var(--md-sys-shape-corner-small);
+        padding: 0 var(--md-sys-spacing-m);
+    }
+
+    .mdc-button--raised {
+        background-color: var(--md-sys-color-primary);
+        color: var(--md-sys-color-on-primary);
+    }
+
+    .mdc-button--raised:hover {
+        background-color: var(--md-sys-color-primary);
+        opacity: 0.9;
+    }
+
+    .mdc-button--outlined {
+        border-color: var(--md-sys-color-outline);
+        color: var(--md-sys-color-primary);
+    }
+
+    .mdc-button--outlined:hover {
+        border-color: var(--md-sys-color-primary);
+        background-color: rgba(var(--md-sys-color-primary-rgb), 0.05);
+    }
+
+    .mdc-button__icon {
+        margin-right: var(--md-sys-spacing-s);
+        font-size: 18px;
+    }
+
+    /* --- 検索 --- */
+    .search-container {
+        background-color: var(--md-sys-color-surface);
+        border-radius: var(--md-sys-shape-corner-large);
+        padding: var(--md-sys-spacing-xl);
+        border: 1px solid var(--md-sys-color-outline);
+        display: flex;
+        flex-direction: column;
+        gap: var(--md-sys-spacing-l);
+        box-shadow: 0 2px 4px 0 var(--md-sys-color-shadow);
+    }
+
+    .search-input-area {
+        display: flex;
+        align-items: flex-start;
+        /* 要素の高さを揃える */
+        gap: var(--md-sys-spacing-m);
+    }
+
+    .search-input-area .mdc-text-field {
+        flex-grow: 1;
+    }
+
+    #searchResultContainer {
+        margin-top: var(--md-sys-spacing-l);
+        min-height: 200px;
+    }
+
+    /* --- 統計 --- */
+    .stats-controls {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--md-sys-spacing-m);
+        margin-bottom: var(--md-sys-spacing-l);
+        flex-wrap: wrap;
+        /* 狭い画面で折り返し */
+    }
+
+    .period-selector {
+        min-width: 180px;
+    }
+
+    .stats-container {
+        background-color: var(--md-sys-color-surface);
+        border-radius: var(--md-sys-shape-corner-large);
+        padding: var(--md-sys-spacing-xl);
+        border: 1px solid var(--md-sys-color-outline);
+        box-shadow: 0 2px 4px 0 var(--md-sys-color-shadow);
+    }
+
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--md-sys-spacing-l);
+        margin-bottom: var(--md-sys-spacing-xl);
+    }
+
+    .summary-card {
+        text-align: center;
+        padding: var(--md-sys-spacing-l);
+        border-radius: var(--md-sys-shape-corner-medium);
+        background-color: rgba(var(--md-sys-color-primary-rgb), 0.05);
+        border: 1px solid rgba(var(--md-sys-color-primary-rgb), 0.1);
+        position: relative;
+        overflow: hidden;
+        transition: transform var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
+            box-shadow var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);
+    }
+
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px 0 var(--md-sys-color-shadow);
+    }
+
+    .summary-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background-color: var(--md-sys-color-primary);
+        opacity: 0.8;
+    }
+
+    .summary-value {
+        font-family: var(--md-sys-typescale-display-small-font-family);
+        font-size: var(--md-sys-typescale-display-small-size);
+        font-weight: var(--md-sys-typescale-display-small-weight);
+        color: var(--md-sys-color-primary);
+        margin-bottom: var(--md-sys-spacing-xs);
+    }
+
+    .summary-label {
+        font-family: var(--md-sys-typescale-label-medium-font-family);
+        font-size: var(--md-sys-typescale-label-medium-size);
+        font-weight: var(--md-sys-typescale-label-medium-weight);
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .chart-container {
+        margin-bottom: var(--md-sys-spacing-xl);
+        height: 350px;
+        /* 高さを確保 */
+        position: relative;
+        /* Chart.jsのため */
+        border-radius: var(--md-sys-shape-corner-medium);
+        padding: var(--md-sys-spacing-m);
+        background-color: var(--md-sys-color-surface-variant);
+    }
+
+    .stats-table-container {
+        overflow-x: auto;
+        /* テーブルがはみ出る場合スクロール */
+        border-radius: var(--md-sys-shape-corner-medium);
+        background-color: var(--md-sys-color-surface);
+    }
+
+    .mdc-data-table {
+        width: 100%;
+        border-radius: var(--md-sys-shape-corner-medium);
+        overflow: hidden;
+        box-shadow: none;
+        border: 1px solid var(--md-sys-color-outline);
+    }
+
+    .mdc-data-table__header-cell {
+        color: var(--md-sys-color-on-surface-variant);
+        font-family: var(--md-sys-typescale-label-large-font-family);
+        font-size: var(--md-sys-typescale-label-large-size);
+        font-weight: var(--md-sys-typescale-label-large-weight);
+        text-transform: none;
+        background-color: var(--md-sys-color-surface-variant);
+    }
+
+    .mdc-data-table__cell {
+        color: var(--md-sys-color-on-surface);
+        font-family: var(--md-sys-typescale-body-medium-font-family);
+        font-size: var(--md-sys-typescale-body-medium-size);
+    }
+
+    .mdc-data-table__row:nth-child(even) .mdc-data-table__cell {
+        background-color: var(--md-sys-color-surface-variant);
+    }
+
+    /* --- 設定 --- */
+    .settings-form {
+        background-color: var(--md-sys-color-surface);
+        border-radius: var(--md-sys-shape-corner-large);
+        padding: var(--md-sys-spacing-xl);
+        border: 1px solid var(--md-sys-color-outline);
+        max-width: 600px;
+        /* 横幅を制限 */
+        box-shadow: 0 2px 4px 0 var(--md-sys-color-shadow);
+    }
+
+    .connection-status {
+        margin-top: var(--md-sys-spacing-l);
+        padding: var(--md-sys-spacing-m);
+        border-radius: var(--md-sys-shape-corner-medium);
+        font-size: var(--md-sys-typescale-body-medium-size);
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-s);
+    }
+
+    .connection-status .material-icons {
+        font-size: 20px;
+    }
+
+    .connection-success {
+        background-color: rgba(var(--md-sys-color-tertiary-rgb), 0.1);
+        color: var(--md-sys-color-tertiary);
+    }
+
+    .connection-error {
+        background-color: rgba(var(--md-sys-color-error-rgb), 0.1);
+        color: var(--md-sys-color-error);
+    }
+
+
+    /* --- モーダル (MDC Dialog) --- */
+    .mdc-dialog {
+        z-index: var(--md-sys-zindex-dialog);
+    }
+
+    .mdc-dialog .mdc-dialog__surface {
+        background-color: var(--md-sys-color-surface);
+        color: var(--md-sys-color-on-surface);
+        border-radius: var(--md-sys-shape-corner-large);
+    }
+
+    .mdc-dialog .mdc-dialog__scrim {
+        background-color: rgba(0, 0, 0, 0.6);
+    }
+
+    .mdc-dialog .mdc-dialog__title {
+        color: var(--md-sys-color-primary);
+        font-family: var(--md-sys-typescale-headline-small-font-family);
+        font-size: var(--md-sys-typescale-headline-small-size);
+        font-weight: var(--md-sys-typescale-headline-small-weight);
+    }
+
+    .mdc-dialog .mdc-dialog__content {
+        color: var(--md-sys-color-on-surface);
+        padding: var(--md-sys-spacing-l);
+    }
+
+    .mdc-dialog .mdc-dialog__actions {
+        padding: var(--md-sys-spacing-m) var(--md-sys-spacing-l);
+        gap: var(--md-sys-spacing-m);
+    }
+
+    /* --- ローディング / 空状態 --- */
+    .loading-container,
+    .error-message,
+    .empty-message,
+    .not-configured-message {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: var(--md-sys-spacing-xxl) var(--md-sys-spacing-l);
+        color: var(--md-sys-color-on-surface-variant);
+        min-height: 200px;
+        /* 最低限の高さを確保 */
+    }
+
+    .loading-container .mdc-linear-progress {
+        width: 80%;
+        max-width: 300px;
+        margin-bottom: var(--md-sys-spacing-l);
+    }
+
+    .error-message .material-icons,
+    .empty-message .material-icons,
+    .not-configured-message .material-icons {
+        font-size: 48px;
+        margin-bottom: var(--md-sys-spacing-m);
+        opacity: 0.7;
+    }
+
+    .error-message .material-icons {
+        color: var(--md-sys-color-error);
+    }
+
+    .empty-message .material-icons {
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .not-configured-message .material-icons {
+        color: var(--md-sys-color-primary);
+    }
+
+    /* MDC Linear Progress スタイル調整 */
+    .mdc-linear-progress__buffer-bar {
+        background-color: var(--md-sys-color-surface-variant);
+    }
+
+    .mdc-linear-progress__buffer-dots {
+        background-image: linear-gradient(to right, var(--md-sys-color-surface-variant), var(--md-sys-color-surface-variant) 20%, transparent 0);
+    }
+
+    .mdc-linear-progress__bar-inner {
+        border-color: var(--md-sys-color-primary);
+    }
+
+    /* --- スナックバー --- */
+    .mdc-snackbar {
+        z-index: var(--md-sys-zindex-snackbar);
+    }
+
+    .mdc-snackbar__surface {
+        background-color: var(--md-sys-color-inverse-surface);
+        color: var(--md-sys-color-inverse-on-surface);
+        border-radius: var(--md-sys-shape-corner-small);
+    }
+
+    .mdc-snackbar__label {
+        color: var(--md-sys-color-inverse-on-surface);
+    }
+
+    .mdc-snackbar__dismiss {
+        color: var(--md-sys-color-inverse-on-surface);
+    }
+
+    .snackbar-success .mdc-snackbar__surface {
+        background-color: var(--md-sys-color-tertiary);
+        color: var(--md-sys-color-on-tertiary);
+    }
+
+    .snackbar-warn .mdc-snackbar__surface {
+        background-color: var(--md-sys-color-warning);
+        color: var(--md-sys-color-on-warning);
+    }
+
+    .snackbar-error .mdc-snackbar__surface {
+        background-color: var(--md-sys-color-error);
+        color: var(--md-sys-color-on-error);
+    }
+
+    /* --- カレンダーピッカー --- */
+    .flatpickr-calendar {
+        background-color: var(--md-sys-color-surface);
+        color: var(--md-sys-color-on-surface);
+        border-radius: var(--md-sys-shape-corner-medium);
+        box-shadow: 0 4px 8px 0 var(--md-sys-color-shadow);
+        border: 1px solid var(--md-sys-color-outline);
+    }
+
+    .flatpickr-calendar.animate.open {
+        animation: fpFadeInDown var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized);
+    }
+
+    .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-current-month input.cur-year {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .flatpickr-day {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .flatpickr-day.selected,
+    .flatpickr-day.startRange,
+    .flatpickr-day.endRange {
+        background-color: var(--md-sys-color-primary);
+        color: var(--md-sys-color-on-primary);
+    }
+
+    .flatpickr-day.today {
+        border: 1px solid var(--md-sys-color-primary);
+    }
+
+    .flatpickr-day:hover {
+        background-color: var(--md-sys-color-surface-variant);
+    }
+
+    .flatpickr-day.inRange {
+        background-color: var(--md-sys-color-primary-container);
+        color: var(--md-sys-color-on-primary-container);
+    }
+
+    .flatpickr-months .flatpickr-prev-month,
+    .flatpickr-months .flatpickr-next-month {
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .flatpickr-months .flatpickr-prev-month:hover svg,
+    .flatpickr-months .flatpickr-next-month:hover svg {
+        fill: var(--md-sys-color-primary);
+    }
+
+    .flatpickr-months .flatpickr-month {
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .flatpickr-weekday {
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    /* --- フッター --- */
+    .app-footer {
+        background-color: var(--md-sys-color-surface);
+        color: var(--md-sys-color-on-surface-variant);
+        text-align: center;
+        padding: var(--md-sys-spacing-m);
+        font-size: var(--md-sys-typescale-body-small-size);
+        border-top: 1px solid var(--md-sys-color-outline);
+        margin-top: auto;
+        /* ページ下部に固定 */
+    }
+
+    /* --- Live Mode スタイル --- */
+    body.live-mode {
+        padding: var(--md-sys-spacing-m);
+        /* 全体にパディング */
+        background-color: var(--md-sys-color-surface);
+        /* 背景はサーフェスカラー */
+        min-height: auto;
+        /* 高さを自動に */
+    }
+
+    body.live-mode .app-container {
+        min-height: auto;
+    }
+
+    body.live-mode .app-header,
+    body.live-mode .app-footer,
+    body.live-mode .tab-container,
+    body.live-mode #dashboard,
+    body.live-mode #case-search,
+    body.live-mode #ncc-stats,
+    body.live-mode #settings {
+        display: none;
+        /* 新規ケース登録以外は非表示 */
+    }
+
+    body.live-mode .app-content {
+        padding: 0;
+        /* コンテンツのパディングを削除 */
+        max-width: none;
+        margin: 0;
+    }
+
+    body.live-mode #new-case {
+        display: block !important;
+        /* 強制的に表示 */
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+    }
+
+    body.live-mode .form-container {
+        padding: var(--md-sys-spacing-m);
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    body.live-mode .form-grid {
+        grid-template-columns: 1fr;
+        /* 1カラム表示 */
+        gap: var(--md-sys-spacing-m);
+    }
+
+    body.live-mode .form-section-title {
+        font-size: 1rem;
+        margin-bottom: var(--md-sys-spacing-m);
+    }
+
+    body.live-mode .buttons-container {
+        margin-top: var(--md-sys-spacing-m);
+        padding-top: var(--md-sys-spacing-m);
+    }
+
+    /* --- アニメーション --- */
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(var(--md-sys-color-primary-rgb), 0.4);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(var(--md-sys-color-primary-rgb), 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(var(--md-sys-color-primary-rgb), 0);
+        }
+    }
+
+    .pulse-animation {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes ripple {
+        0% {
+            transform: scale(0);
+            opacity: 1;
+        }
+
+        80% {
+            transform: scale(1.5);
+            opacity: 0.5;
+        }
+
+        100% {
+            transform: scale(2);
+            opacity: 0;
+        }
+    }
+
+    /* MDC Ripple スタイル調整 - 明示的なリップルアニメーション */
+    .mdc-ripple-surface::after {
+        background-color: var(--md-sys-color-primary);
+        opacity: 0.08;
+    }
+
+    .mdc-button--raised .mdc-ripple-surface::after {
+        background-color: var(--md-sys-color-on-primary);
+        opacity: 0.12;
+    }
+
+    /* --- カスタムスクロールバー --- */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--md-sys-color-surface-variant);
+        border-radius: var(--md-sys-shape-corner-full);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--md-sys-color-outline);
+        border-radius: var(--md-sys-shape-corner-full);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--md-sys-color-on-surface-variant);
+    }
+
+    /* --- ステータスコレクション --- */
+    .status-collection {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--md-sys-spacing-s);
+        margin-top: var(--md-sys-spacing-s);
+    }
+
+    .status-chip {
+        padding: var(--md-sys-spacing-xs) var(--md-sys-spacing-m);
+        border-radius: var(--md-sys-shape-corner-full);
+        font-family: var(--md-sys-typescale-label-medium-font-family);
+        font-size: var(--md-sys-typescale-label-medium-size);
+        font-weight: var(--md-sys-typescale-label-medium-weight);
+        line-height: var(--md-sys-typescale-label-medium-line-height);
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-xs);
+    }
+
+    .status-chip .status-count {
+        font-weight: 600;
+    }
+
+    /* ------------------- */
+    /* --- レスポンシブ --- */
+    /* ------------------- */
+    @media screen and (max-width: 992px) {
+        .app-content {
+            padding: var(--md-sys-spacing-m);
+        }
+
+        .case-cards {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--md-sys-spacing-m);
+        }
+
+        .form-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--md-sys-spacing-m);
+        }
+
+        .stats-summary {
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: var(--md-sys-spacing-m);
+        }
+
+        .summary-value {
+            font-size: var(--md-sys-typescale-headline-small-size);
+        }
+    }
+
+    @media screen and (max-width: 768px) {
+        .header-content {
+            padding: var(--md-sys-spacing-s) var(--md-sys-spacing-m);
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+        }
+
+        .app-title {
+            font-size: var(--md-sys-typescale-title-medium-size);
+        }
+
+        .user-email {
+            max-width: 150px;
+        }
+
+        .mdc-tab__text-label {
+            font-size: var(--md-sys-typescale-label-large-size);
+        }
+
+        .section-header h2 {
+            font-size: var(--md-sys-typescale-title-large-size);
+        }
+
+        .case-cards {
+            grid-template-columns: 1fr;
+        }
+
+        /* モバイルでは1カラム */
+        .case-id {
+            font-size: var(--md-sys-typescale-body-large-size);
+        }
+
+        .stats-summary {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        /* サマリーは2カラム */
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        /* フォームも1カラム */
+        .buttons-container {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .buttons-container .mdc-button {
+            width: 100%;
+        }
+    }
+
+    @media screen and (max-width: 480px) {
+        .header-content {
+            flex-wrap: wrap;
+            gap: var(--md-sys-spacing-s);
+        }
+
+        /* ヘッダー折り返し */
+        .logo-container {
+            order: 1;
+            flex-basis: 100%;
+            justify-content: center;
+        }
+
+        .user-controls {
+            order: 2;
+            flex-basis: 100%;
+            justify-content: center;
+        }
+
+        .app-title {
+            font-size: var(--md-sys-typescale-body-large-size);
+        }
+
+        .app-content {
+            padding: var(--md-sys-spacing-s);
+        }
+
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--md-sys-spacing-s);
+        }
+
+        .stats-summary {
+            grid-template-columns: 1fr;
+        }
+
+        /* サマリーも1カラム */
+        .case-timer {
+            font-size: var(--md-sys-typescale-body-medium-size);
+        }
+
+        .timer-icon {
+            font-size: 18px;
+        }
+
+        .search-input-area {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+    /* 編集モーダルのクローズ情報グリッド */
+    .close-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--md-sys-spacing-m);
+    }
+
+    .close-info-grid .date-field {
+        grid-column: 1;
+    }
+
+    .close-info-grid .time-field {
+        grid-column: 2;
+    }
+
+    /* 再オープン情報グリッド */
+    .reopen-info-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--md-sys-spacing-m);
+    }
+
+    .reopen-info-grid .date-field {
+        grid-column: 2;
+    }
+
+    .reopen-info-grid .time-field {
+        grid-column: 3;
+    }
+    /* --- タイマースタイル --- */
+    .timers-container {
+        display: flex;
+        flex-direction: column; /* 縦に並べる */
+        gap: var(--md-sys-spacing-s); /* タイマー間のスペース */
+        margin-top: var(--md-sys-spacing-m);
+    }
+
+    .case-timer {
+        display: flex;
+        align-items: center;
+        gap: var(--md-sys-spacing-xs);
+        font-family: var(--md-sys-typescale-body-small-font-family);
+        font-size: var(--md-sys-typescale-body-small-size);
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .timer-icon {
+        font-size: 16px; /* アイコンサイズ調整 */
+        color: inherit;
+    }
+
+    .timer-label {
+        font-weight: 500;
+    }
+
+    .timer-value {
+        font-weight: 500;
+        font-family: 'Roboto Mono', monospace; /* 等幅フォント */
+    }
+
+    .timer-warning .timer-value {
+        color: var(--md-sys-color-warning);
+    }
+
+    .timer-missed .timer-value {
+        color: var(--md-sys-color-error);
+        font-weight: 700;
+    }
+
+    .timer-error .timer-value {
+        color: var(--md-sys-color-error);
+        font-style: italic;
+    }
+</style>

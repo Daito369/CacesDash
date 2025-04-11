@@ -1,0 +1,1064 @@
+<script>
+  /**
+   * script.html - メインフロントエンドスクリプト
+   * MDC Webコンポーネントの初期化、イベントハンドリング、共通ユーティリティ関数
+   */
+
+  // --- グローバル変数 ---
+  let userInfo = null; // { success: boolean, email?: string, ldap?: string, message?: string }
+  let currentSettings = {}; // { spreadsheetId: string }
+  let formDefinitions = {}; // フォームの選択肢 (caseManagement.js などで設定・利用)
+
+  // MDC コンポーネントインスタンス
+  let mdcTabBar;
+  let mdcSnackbar;
+  let mdcDialog;
+  let mdcSelectComponents = {}; // Selectコンポーネントを保持 (例: { statsPeriod: mdcSelect })
+  let mdcTextFieldComponents = {}; // TextFieldコンポーネントを保持
+  let mdcButtonComponents = {}; // Buttonコンポーネントを保持
+  let flatpickrInstances = {}; // Flatpickrインスタンスを保持
+
+  // --- 初期化処理 ---
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM Loaded. Initializing application...");
+    initializeTheme();
+    initializeMDCComponents();
+    setupCommonEventListeners();
+
+    // API呼び出しを並列化して初期化を高速化
+    Promise.all([
+      loadUserInfoPromise(),
+      loadSettingsPromise(),
+      loadFormDefinitionsPromise()
+    ]).then(results => {
+      const [userInfoResult, settingsResult, formDefinitionsResult] = results;
+
+      if (userInfoResult.success && settingsResult.success && formDefinitionsResult.success) {
+        console.log("All required data loaded successfully");
+        // 現在のタブをアクティブ化
+        const activeTab = document.querySelector('.mdc-tab--active');
+        if (activeTab) {
+          triggerTabLoadAction(activeTab.dataset.tabId);
+        }
+      } else {
+        // エラーメッセージを表示
+        if (!userInfoResult.success) {
+          showContentError('userInfoError', userInfoResult.message || 'ユーザー情報の取得に失敗しました。');
+          showSnackbar('ユーザー情報の取得に失敗しました。', 'error');
+        }
+        if (!settingsResult.success) {
+          showContentError('settingsError', settingsResult.message || '設定の取得に失敗しました。');
+        }
+        if (!formDefinitionsResult.success) {
+          showContentError('formDefinitionsError', formDefinitionsResult.message || 'フォーム定義の取得に失敗しました。');
+        }
+      }
+    }).catch(error => {
+      console.error("Error during initialization:", error);
+      showSnackbar('初期化中にエラーが発生しました。', 'error');
+    });
+  });
+
+  // ユーザー情報をPromiseで取得
+  function loadUserInfoPromise() {
+    return new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(result => {
+          if (result.success) {
+            userInfo = result;
+            document.getElementById('userEmail').textContent = result.email || '不明';
+            console.log("User info loaded:", userInfo);
+          }
+          resolve(result);
+        })
+        .withFailureHandler(error => {
+          console.error("Failed to load user info:", error);
+          resolve({ success: false, message: `ユーザー情報取得エラー: ${error.message}` });
+        })
+        .getCurrentUser();
+    });
+  }
+
+  // 設定をPromiseで取得
+  function loadSettingsPromise() {
+    return new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(result => {
+          if (result.success) {
+            currentSettings = result.settings;
+            console.log("Settings loaded:", currentSettings);
+
+            // 設定フォームに値を反映
+            const spreadsheetIdField = mdcTextFieldComponents['spreadsheetIdLabel'];
+            if (spreadsheetIdField) {
+              spreadsheetIdField.value = currentSettings.spreadsheetId || '';
+            } else {
+              const inputEl = document.getElementById('spreadsheetIdInput');
+              if (inputEl) inputEl.value = currentSettings.spreadsheetId || '';
+            }
+          }
+          resolve(result);
+        })
+        .withFailureHandler(error => {
+          console.error("Failed to load settings:", error);
+          resolve({ success: false, message: `設定読み込みエラー: ${error.message}` });
+        })
+        .getSettings();
+    });
+  }
+
+  // フォーム定義をPromiseで取得
+  function loadFormDefinitionsPromise() {
+    return new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(result => {
+          formDefinitions = result;
+          console.log("Form definitions loaded:", formDefinitions);
+          resolve({ success: true });
+        })
+        .withFailureHandler(error => {
+          console.error("Failed to load form definitions:", error);
+          resolve({ success: false, message: `フォーム定義取得エラー: ${error.message}` });
+        })
+        .getFormDefinitions();
+    });
+  }
+
+  /**
+   * MDC Web コンポーネントの初期化
+   */
+  function initializeMDCComponents() {
+    console.log("Initializing MDC Components...");
+    // Tab Bar
+    const tabBarElement = document.querySelector('.mdc-tab-bar');
+    if (tabBarElement) {
+      mdcTabBar = new mdc.tabBar.MDCTabBar(tabBarElement);
+      mdcTabBar.listen('MDCTabBar:activated', handleTabActivation);
+      console.log("MDC Tab Bar initialized.");
+    }
+
+    // Snackbar
+    const snackbarElement = document.getElementById('appSnackbar');
+    if (snackbarElement) {
+      mdcSnackbar = new mdc.snackbar.MDCSnackbar(snackbarElement);
+      console.log("MDC Snackbar initialized.");
+    }
+
+    // Dialog (ケース詳細/編集モーダル)
+    const dialogElement = document.getElementById('caseDetailModal');
+    if (dialogElement) {
+      mdcDialog = new mdc.dialog.MDCDialog(dialogElement);
+      console.log("MDC Dialog initialized.");
+    }
+
+    // MDC Segmented Button (グラフ切り替え)
+    const segmentedButton = document.getElementById('statsChartSwitcher');
+    if (segmentedButton) {
+      segmentedButton.querySelectorAll('.mdc-segmented-button__segment').forEach(segment => {
+        segment.addEventListener('click', () => {
+          // 選択状態を更新
+          segmentedButton.querySelectorAll('.mdc-segmented-button__segment').forEach(s => {
+            s.classList.remove('mdc-segmented-button__segment--selected');
+            s.setAttribute('aria-checked', 'false');
+          });
+          segment.classList.add('mdc-segmented-button__segment--selected');
+          segment.setAttribute('aria-checked', 'true');
+
+          // グラフタイプを切り替え
+          if (typeof updateChartType === 'function') {
+            updateChartType(segment.dataset.type);
+          }
+        });
+      });
+    }
+
+    // Buttons (リップルエフェクト)
+    const buttons = document.querySelectorAll('.mdc-button, .mdc-icon-button');
+    buttons.forEach((btn) => {
+      const ripple = new mdc.ripple.MDCRipple(btn);
+      if (btn.classList.contains('mdc-icon-button')) {
+        ripple.unbounded = true;
+      }
+      if (btn.id) {
+        mdcButtonComponents[btn.id] = ripple;
+      }
+    });
+    console.log(`Initialized ripples for ${buttons.length} buttons.`);
+
+    // Text Fields
+    const textFields = document.querySelectorAll('.mdc-text-field');
+    textFields.forEach(tf => {
+      const mdcTf = new mdc.textField.MDCTextField(tf);
+      if (tf.id) {
+        mdcTextFieldComponents[tf.id] = mdcTf;
+      }
+    });
+    console.log(`Initialized ${textFields.length} MDC Text Fields.`);
+
+    // Selects
+    const selects = document.querySelectorAll('.mdc-select');
+    selects.forEach(sel => {
+      const mdcSel = new mdc.select.MDCSelect(sel);
+      if (sel.id) {
+        mdcSelectComponents[sel.id] = mdcSel;
+      }
+    });
+    console.log(`Initialized ${selects.length} MDC Selects.`);
+
+    // Linear Progress
+    document.querySelectorAll('.mdc-linear-progress').forEach(lp =>
+      new mdc.linearProgress.MDCLinearProgress(lp)
+    );
+  }
+
+  /**
+   * 共通のイベントリスナーを設定
+   */
+  function setupCommonEventListeners() {
+    // Theme Toggle Button
+    const themeToggleBtn = document.getElementById('themeToggle');
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+
+    // Live Mode Button
+    const liveModeBtn = document.getElementById('liveModeBtn');
+    if (liveModeBtn) {
+      liveModeBtn.addEventListener('click', openLiveModeWindow);
+    }
+
+    // 各機能モジュールのイベントリスナー設定関数を呼び出す
+    setupSettingsEventListeners();
+    setupSearchEventListeners();
+  }
+
+  // --- テーマ管理 ---
+  function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const useDark = savedTheme === 'dark' || (savedTheme === null && prefersDark);
+    setTheme(useDark);
+    console.log(`Theme initialized. Dark mode: ${useDark}`);
+  }
+
+  function setTheme(isDark) {
+    document.body.classList.toggle('dark-theme', isDark);
+    updateThemeIcon(isDark);
+  }
+
+  function toggleTheme() {
+    const isDark = !document.body.classList.contains('dark-theme');
+    setTheme(isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    console.log(`Theme toggled. Dark mode: ${isDark}`);
+
+    // チャートのテーマを更新
+    if (typeof updateChartTheme === 'function') {
+      updateChartTheme(isDark);
+    }
+
+    // 日付ピッカーのテーマを更新
+    Object.values(flatpickrInstances).forEach(fp => {
+      if (fp && fp.redraw) {
+        fp.redraw();
+      }
+    });
+  }
+
+  function updateThemeIcon(isDark) {
+    const icon = document.getElementById('themeToggle');
+    if (icon) {
+      icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+    }
+  }
+
+  // --- タブ制御 ---
+  function handleTabActivation(event) {
+    const activatedTabIndex = event.detail.index;
+    const tabs = document.querySelectorAll('.mdc-tab');
+    const contents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach((tab, index) => {
+      const tabId = tab.dataset.tabId;
+      const content = document.getElementById(tabId);
+      if (content) {
+        const isActive = index === activatedTabIndex;
+        content.classList.toggle('active', isActive);
+        // コンテンツが表示されたときに特定の処理を実行
+        if (isActive) {
+          console.log(`Tab activated: ${tabId}`);
+          triggerTabLoadAction(tabId);
+        }
+      }
+    });
+  }
+
+  /**
+   * タブがアクティブになったときに実行するアクション
+   * @param {string} tabId - アクティブになったタブのID
+   */
+  function triggerTabLoadAction(tabId) {
+    if (!currentSettings.spreadsheetId && tabId !== 'settings') {
+      showContentError('configNeeded', 'スプレッドシートIDが設定されていません。「設定」タブでIDを入力し、保存してください。', ['settings']);
+      return;
+    }
+
+    switch (tabId) {
+      case 'dashboard':
+        if (typeof initializeDashboard === 'function') initializeDashboard();
+        break;
+      case 'new-case':
+        if (typeof initializeNewCaseForm === 'function') initializeNewCaseForm();
+        break;
+      case 'case-search':
+        // 検索フォームのリセット (必要であれば)
+        break;
+      case 'ncc-stats':
+        if (typeof loadNCCStats === 'function') loadNCCStats();
+        break;
+      case 'settings':
+        // 設定の再読み込みは不要
+        break;
+    }
+  }
+
+  // --- 設定ページ ---
+  function setupSettingsEventListeners() {
+    const testBtn = document.getElementById('testConnectionBtn');
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    const input = document.getElementById('spreadsheetIdInput');
+
+    if (testBtn) {
+      testBtn.addEventListener('click', () => {
+        const spreadsheetId = input ? input.value.trim() : '';
+        if (!spreadsheetId) {
+          showSnackbar('スプレッドシートIDを入力してください', 'warn');
+          return;
+        }
+        testSpreadsheetConnection(spreadsheetId);
+      });
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const spreadsheetId = input ? input.value.trim() : '';
+        if (!spreadsheetId) {
+          showSnackbar('スプレッドシートIDを入力してください', 'warn');
+          return;
+        }
+        saveSpreadsheetSettings(spreadsheetId);
+      });
+    }
+  }
+
+  function testSpreadsheetConnection(spreadsheetId) {
+    const statusDiv = document.getElementById('connectionStatus');
+    if (statusDiv) {
+      statusDiv.innerHTML = `
+      <div class="loading-container" style="padding:0; min-height: 20px;">
+        <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+          <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-dots"></div><div class="mdc-linear-progress__buffer-bar"></div></div>
+          <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+          <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+        </div>
+        <p>接続テスト中...</p>
+      </div>`;
+      statusDiv.className = 'connection-status';
+
+      // Linear Progressを初期化
+      const progressBar = statusDiv.querySelector('.mdc-linear-progress');
+      if (progressBar) new mdc.linearProgress.MDCLinearProgress(progressBar);
+    }
+
+    google.script.run
+      .withSuccessHandler(result => {
+        if (statusDiv) {
+          statusDiv.innerHTML = `<i class="material-icons">${result.success ? 'check_circle' : 'error'}</i> ${result.message}`;
+          statusDiv.className = `connection-status ${result.success ? 'connection-success' : 'connection-error'}`;
+        }
+        showSnackbar(result.message, result.success ? 'success' : 'error');
+      })
+      .withFailureHandler(error => {
+        if (statusDiv) {
+          statusDiv.innerHTML = `<i class="material-icons">error</i> 接続テストエラー: ${error.message}`;
+          statusDiv.className = 'connection-status connection-error';
+        }
+        showSnackbar(`接続テストエラー: ${error.message}`, 'error');
+      })
+      .testConnection(spreadsheetId);
+  }
+
+  function saveSpreadsheetSettings(spreadsheetId) {
+    showLoadingIndicator(true, '設定を保存中...');
+    google.script.run
+      .withSuccessHandler(result => {
+        showLoadingIndicator(false);
+        if (result.success) {
+          showSnackbar(result.message, 'success');
+          currentSettings.spreadsheetId = spreadsheetId;
+
+          // 設定が変更されたので、影響を受ける可能性のあるタブの内容を再読み込み
+          const activeTab = document.querySelector('.mdc-tab--active');
+          if (activeTab && activeTab.dataset.tabId !== 'settings') {
+            triggerTabLoadAction(activeTab.dataset.tabId);
+          } else if (!activeTab) {
+            triggerTabLoadAction('dashboard');
+          }
+
+          // 設定が必要なコンテンツのエラー表示をクリア
+          clearContentErrors(['configNeeded', 'configError']);
+        } else {
+          showSnackbar(result.message, 'error');
+        }
+      })
+      .withFailureHandler(error => {
+        showLoadingIndicator(false);
+        showSnackbar(`設定保存エラー: ${error.message}`, 'error');
+      })
+      .saveSettings({ spreadsheetId: spreadsheetId });
+  }
+
+  // --- 検索ページ ---
+  function setupSearchEventListeners() {
+    const searchBtn = document.getElementById('searchCaseBtn');
+    const searchInput = document.getElementById('caseIdSearchInput');
+
+    if (searchBtn && searchInput) {
+      searchBtn.addEventListener('click', performCaseSearch);
+      searchInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          performCaseSearch();
+        }
+      });
+    }
+  }
+
+  function performCaseSearch() {
+    const searchInput = document.getElementById('caseIdSearchInput');
+    const caseId = searchInput ? searchInput.value.trim() : '';
+    if (!caseId) {
+      showSnackbar('検索するCase IDを入力してください', 'warn');
+      return;
+    }
+
+    const resultContainer = document.getElementById('searchResultContainer');
+    if (resultContainer) {
+      resultContainer.innerHTML = `
+      <div class="loading-container">
+        <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+          <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-dots"></div><div class="mdc-linear-progress__buffer-bar"></div></div>
+          <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+          <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+        </div>
+        <p>ケース ${caseId} を検索中...</p>
+      </div>`;
+
+      // Linear Progressを初期化
+      const progressBar = resultContainer.querySelector('.mdc-linear-progress');
+      if (progressBar) new mdc.linearProgress.MDCLinearProgress(progressBar);
+    }
+
+    google.script.run
+      .withSuccessHandler(result => {
+        if (resultContainer) {
+          if (result.success) {
+            // dashboard.js の createCaseCardHtml を利用して表示
+            if (typeof createCaseCardHtml === 'function') {
+              resultContainer.innerHTML = createCaseCardHtml(result.data, result.rowIndex, true); // isSearchResult = true
+              // 動的に生成されたカードのボタンにリップルを適用
+              resultContainer.querySelectorAll('.mdc-button').forEach(btn => new mdc.ripple.MDCRipple(btn));
+              // 編集ボタンなどのリスナーを設定
+              if (typeof setupCaseCardEventListeners === 'function') {
+                setupCaseCardEventListeners(resultContainer);
+              }
+            } else {
+              resultContainer.innerHTML = `<div class="error-message"><p>検索結果表示コンポーネントが見つかりません。</p></div>`;
+            }
+          } else {
+            resultContainer.innerHTML = `
+            <div class="empty-message">
+              <i class="material-icons-outlined">search_off</i>
+              <p>${result.message}</p>
+            </div>`;
+          }
+        }
+      })
+      .withFailureHandler(error => {
+        if (resultContainer) {
+          resultContainer.innerHTML = `
+          <div class="error-message">
+            <i class="material-icons-outlined">error</i>
+            <p>検索エラー: ${error.message}</p>
+          </div>`;
+        }
+        showSnackbar(`検索エラー: ${error.message}`, 'error');
+      })
+      .searchCaseById(caseId);
+  }
+
+  // --- Live Mode ---
+  function openLiveModeWindow() {
+    showLoadingIndicator(true, 'Live Modeを準備中...');
+    google.script.run
+      .withSuccessHandler(result => {
+        showLoadingIndicator(false);
+        if (result.success) {
+          const liveModeUrl = result.url + "?view=live";
+          // ウィンドウサイズを調整可能にする
+          const windowFeatures = "popup=yes,width=480,height=700,resizable=yes,scrollbars=yes";
+          const newWindow = window.open(liveModeUrl, "liveModeWindow", windowFeatures);
+
+          // 新しいウィンドウが開かれたかチェック
+          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            showSnackbar('ポップアップがブロックされました。ブラウザの設定を確認してください。', 'warn');
+          } else {
+            console.log("Live Mode window opened:", liveModeUrl);
+          }
+        } else {
+          showSnackbar(`Live Mode起動エラー: ${result.message}`, 'error');
+        }
+      })
+      .withFailureHandler(error => {
+        showLoadingIndicator(false);
+        showSnackbar(`Live Mode起動エラー: ${error.message}`, 'error');
+      })
+      .getService();
+  }
+
+  // --- 通知 (Snackbar) ---
+  /**
+   * Snackbarで通知を表示する
+   * @param {string} message 表示するメッセージ
+   * @param {'info' | 'success' | 'warn' | 'error'} level メッセージレベル (色分けなどに使用)
+   * @param {number} timeout 表示時間 (ms)
+   */
+  function showSnackbar(message, level = 'info', timeout = 5000) {
+    if (!mdcSnackbar) {
+      console.error("Snackbar is not initialized. Message:", message);
+      alert(message); // フォールバック
+      return;
+    }
+
+    const snackbarEl = mdcSnackbar.root;
+    // レベルに応じてスタイルを適用
+    snackbarEl.classList.remove('snackbar-success', 'snackbar-warn', 'snackbar-error');
+    if (level === 'success') {
+      snackbarEl.classList.add('snackbar-success');
+    } else if (level === 'warn') {
+      snackbarEl.classList.add('snackbar-warn');
+    } else if (level === 'error') {
+      snackbarEl.classList.add('snackbar-error');
+    }
+
+    mdcSnackbar.labelText = message;
+    mdcSnackbar.timeoutMs = timeout;
+    mdcSnackbar.open();
+  }
+
+  // --- ローディング表示 ---
+  /**
+   * グローバルなローディングインジケーターを表示/非表示
+   * @param {boolean} show 表示するかどうか
+   * @param {string} message 表示メッセージ（オプション）
+   */
+  function showLoadingIndicator(show, message = '読み込み中...') {
+    // モバイル表示でタブのアクティブ状況を表示
+    if (show) {
+      const loadingEl = document.createElement('div');
+      loadingEl.id = 'globalLoadingIndicator';
+      loadingEl.style.position = 'fixed';
+      loadingEl.style.top = '0';
+      loadingEl.style.left = '0';
+      loadingEl.style.right = '0';
+      loadingEl.style.zIndex = '9999';
+      loadingEl.style.backgroundColor = 'var(--md-sys-color-primary)';
+      loadingEl.style.color = 'var(--md-sys-color-on-primary)';
+      loadingEl.style.textAlign = 'center';
+      loadingEl.style.padding = '8px 16px';
+      loadingEl.style.fontSize = '14px';
+      loadingEl.style.fontWeight = '500';
+      loadingEl.style.transition = 'transform 0.3s ease';
+      loadingEl.style.transform = 'translateY(-100%)';
+      loadingEl.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span class="material-icons" style="font-size: 18px; animation: spin 1.5s linear infinite;">sync</span>
+        <span>${message}</span>
+      </div>
+    `;
+      document.body.appendChild(loadingEl);
+
+      // アニメーションのため少し遅延させて表示
+      setTimeout(() => {
+        const indicator = document.getElementById('globalLoadingIndicator');
+        if (indicator) {
+          indicator.style.transform = 'translateY(0)';
+        }
+      }, 10);
+    } else {
+      const indicator = document.getElementById('globalLoadingIndicator');
+      if (indicator) {
+        indicator.style.transform = 'translateY(-100%)';
+        // アニメーション完了後に削除
+        setTimeout(() => {
+          indicator.remove();
+        }, 300);
+      }
+    }
+  }
+
+  // --- コンテンツエリアのエラー表示 ---
+  /**
+   * 指定されたタブコンテンツにエラーメッセージを表示する
+   * @param {string} errorId エラー識別子 (クリア用)
+   * @param {string} message 表示するエラーメッセージ
+   * @param {Array<string>} excludeTabs エラー表示を除外するタブIDの配列 (オプション)
+   */
+  function showContentError(errorId, message, excludeTabs = []) {
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(content => {
+      const tabId = content.id;
+      if (!excludeTabs.includes(tabId)) {
+        // 既存のエラーをクリア
+        const existingError = content.querySelector(`.error-message[data-error-id="${errorId}"]`);
+        if (existingError) existingError.remove();
+
+        // 新しいエラーメッセージ要素を作成
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.dataset.errorId = errorId;
+        errorDiv.innerHTML = `<i class="material-icons-outlined">error_outline</i><p>${message}</p>`;
+
+        // コンテンツエリアの先頭に追加
+        content.prepend(errorDiv);
+      }
+    });
+  }
+
+  /**
+   * 指定されたIDのコンテンツエリアのエラー表示をクリアする
+   * @param {string | Array<string>} errorIds クリアするエラーID (単一または配列)、指定しない場合はすべて
+   */
+  function clearContentErrors(errorIds = null) {
+    const selector = errorIds
+      ? (Array.isArray(errorIds)
+        ? errorIds.map(id => `.error-message[data-error-id="${id}"]`).join(',')
+        : `.error-message[data-error-id="${errorIds}"]`)
+      : '.error-message[data-error-id]';
+
+    document.querySelectorAll(selector).forEach(errorDiv => {
+      errorDiv.remove();
+    });
+  }
+
+  // --- ユーティリティ関数 ---
+  /**
+   * 日付をフォーマットする
+   * @param {Date|string} dateInput - フォーマットする日付
+   * @param {string} format - 出力フォーマット（デフォルト: 'yyyy/MM/dd'）
+   * @return {string} フォーマットされた日付文字列
+   */
+  function formatDate(dateInput, format = 'yyyy/MM/dd') {
+    if (!dateInput) return '';
+
+    try {
+      // 日付オブジェクトに変換
+      let date;
+      if (dateInput instanceof Date) {
+        date = dateInput;
+      } else if (typeof dateInput === 'string') {
+        // yyyy/MM/dd または yyyy-MM-dd 形式を処理
+        if (dateInput.includes('/') || dateInput.includes('-')) {
+          date = new Date(dateInput.replace(/-/g, '/'));
+        } else {
+          date = new Date(dateInput);
+        }
+      } else {
+        return dateInput; // 処理できない場合は元の値を返す
+      }
+
+      if (isNaN(date.getTime())) {
+        return dateInput; // 無効な日付の場合は元の値を返す
+      }
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      // 簡易フォーマット置換
+      return format
+        .replace('yyyy', year)
+        .replace('MM', month)
+        .replace('dd', day);
+    } catch (e) {
+      console.warn("Date formatting error:", e, "Input:", dateInput);
+      return String(dateInput); // エラー時は元の値を文字列化して返す
+    }
+  }
+
+  /**
+   * 時間をフォーマットする
+   * @param {Date|string} timeInput - フォーマットする時間
+   * @param {string} format - 出力フォーマット（デフォルト: 'HH:mm:ss'）
+   * @return {string} フォーマットされた時間文字列
+   */
+  function formatTime(timeInput, format = 'HH:mm:ss') {
+    if (!timeInput) return '';
+
+    try {
+      let hours, minutes, seconds;
+
+      if (timeInput instanceof Date) {
+        hours = timeInput.getHours();
+        minutes = timeInput.getMinutes();
+        seconds = timeInput.getSeconds();
+      } else if (typeof timeInput === 'string') {
+        // HH:mm:ss 形式を処理
+        if (timeInput.includes(':')) {
+          const parts = timeInput.split(':');
+          hours = parseInt(parts[0] || '0', 10);
+          minutes = parseInt(parts[1] || '0', 10);
+          seconds = parseInt(parts[2] || '0', 10);
+        } else {
+          // それ以外は Date として解釈
+          const date = new Date(timeInput);
+          if (!isNaN(date.getTime())) {
+            hours = date.getHours();
+            minutes = date.getMinutes();
+            seconds = date.getSeconds();
+          } else {
+            return timeInput; // 解釈できない場合は元の値を返す
+          }
+        }
+      } else {
+        return timeInput; // 処理できない場合は元の値を返す
+      }
+
+      // 各部分をゼロ埋め
+      const paddedHours = String(hours).padStart(2, '0');
+      const paddedMinutes = String(minutes).padStart(2, '0');
+      const paddedSeconds = String(seconds).padStart(2, '0');
+
+      // 簡易フォーマット置換
+      return format
+        .replace('HH', paddedHours)
+        .replace('mm', paddedMinutes)
+        .replace('ss', paddedSeconds);
+    } catch (e) {
+      console.warn("Time formatting error:", e, "Input:", timeInput);
+      return String(timeInput); // エラー時は元の値を文字列化して返す
+    }
+  }
+
+  /**
+   * 日付入力フィールドにFlatpickrを初期化する
+   * @param {string|HTMLElement} selector - ターゲット要素のセレクタまたは要素
+   * @param {Object} options - Flatpickrのオプション
+   * @return {Object} Flatpickrインスタンス
+   */
+  function initDatePicker(selector, options = {}) {
+    const element = typeof selector === 'string' ? document.querySelector(selector) : selector;
+    if (!element) return null;
+
+    const defaultOptions = {
+      dateFormat: 'Y/m/d',
+      locale: 'ja',
+      allowInput: true,
+      disableMobile: false,
+      static: true,
+      prevArrow: '<span class="material-icons-outlined">chevron_left</span>',
+      nextArrow: '<span class="material-icons-outlined">chevron_right</span>',
+      onChange: (selectedDates, dateStr) => {
+        // 選択後にMDC Text Fieldのラベルを調整
+        if (element && element.parentElement) {
+          const mdcTextField = element.parentElement.closest('.mdc-text-field');
+          if (mdcTextField && mdcTextField.id) {
+            const mdcTf = mdcTextFieldComponents[mdcTextField.id];
+            if (mdcTf) {
+              mdcTf.value = dateStr;
+            }
+          }
+        }
+      }
+    };
+
+    const mergedOptions = { ...defaultOptions, ...options };
+    const instance = flatpickr(element, mergedOptions);
+
+    // インスタンスをキャッシュ
+    if (element.id) {
+      flatpickrInstances[element.id] = instance;
+    }
+
+    return instance;
+  }
+
+  /**
+   * 時間入力フィールドにFlatpickrを初期化する
+   * @param {string|HTMLElement} selector - ターゲット要素のセレクタまたは要素
+   * @param {Object} options - Flatpickrのオプション
+   * @return {Object} Flatpickrインスタンス
+   */
+  function initTimePicker(selector, options = {}) {
+    const element = typeof selector === 'string' ? document.querySelector(selector) : selector;
+    if (!element) return null;
+
+    const defaultOptions = {
+      enableTime: true,
+      noCalendar: true,
+      dateFormat: 'H:i:S',
+      time_24hr: true,
+      locale: 'ja',
+      allowInput: true,
+      disableMobile: false,
+      static: true,
+      onChange: (selectedDates, timeStr) => {
+        // 選択後にMDC Text Fieldのラベルを調整
+        if (element && element.parentElement) {
+          const mdcTextField = element.parentElement.closest('.mdc-text-field');
+          if (mdcTextField && mdcTextField.id) {
+            const mdcTf = mdcTextFieldComponents[mdcTextField.id];
+            if (mdcTf) {
+              mdcTf.value = timeStr;
+            }
+          }
+        }
+      }
+    };
+
+    const mergedOptions = { ...defaultOptions, ...options };
+    const instance = flatpickr(element, mergedOptions);
+
+    // インスタンスをキャッシュ
+    if (element.id) {
+      flatpickrInstances[element.id] = instance;
+    }
+
+    return instance;
+  }
+
+  // --- タイマー更新 (ダッシュボード用) ---
+  /**
+   * ダッシュボード上のタイマーを更新する関数
+   */
+  function updateTimers() {
+    const timerElements = document.querySelectorAll('.case-timer');
+    if (timerElements.length === 0) return;
+
+    timerElements.forEach(timerEl => {
+      const deadlineStr = timerEl.dataset.deadline;
+      const status = timerEl.dataset.status;
+      const timerValueSpan = timerEl.querySelector('.timer-value');
+
+      if (!timerValueSpan || status !== 'Assigned') {
+        return; // Assigned 以外のステータスや要素がない場合はスキップ
+      }
+
+      if (!deadlineStr) {
+        timerValueSpan.textContent = 'N/A'; // 期限がない場合は N/A
+        timerEl.classList.remove('timer-warning', 'timer-missed', 'timer-error');
+        return;
+      }
+
+      try {
+        const deadline = new Date(deadlineStr);
+        const now = new Date();
+        const diff = deadline.getTime() - now.getTime();
+
+        if (isNaN(deadline.getTime())) {
+          throw new Error("Invalid deadline date");
+        }
+
+        if (diff <= 0) {
+          timerValueSpan.textContent = 'Missed';
+          timerEl.classList.add('timer-missed');
+          timerEl.classList.remove('timer-warning', 'timer-error');
+        } else {
+          let remainingTimeStr = '';
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          if (days > 0) {
+            remainingTimeStr = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+          } else {
+            remainingTimeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+          }
+          timerValueSpan.textContent = remainingTimeStr;
+
+          // 期限が近い場合に警告表示 (例: 24時間以内)
+          if (diff < 24 * 60 * 60 * 1000) {
+            timerEl.classList.add('timer-warning');
+          } else {
+            timerEl.classList.remove('timer-warning');
+          }
+          timerEl.classList.remove('timer-missed', 'timer-error');
+        }
+      } catch (e) {
+        console.error("Error parsing or calculating deadline:", deadlineStr, e);
+        timerValueSpan.textContent = 'Error';
+        timerEl.classList.add('timer-error');
+        timerEl.classList.remove('timer-warning', 'timer-missed');
+      }
+    });
+  }
+
+  // 1秒ごとにタイマーを更新
+  setInterval(updateTimers, 1000);
+
+  // --- MDCコンポーネント動的生成ヘルパー ---
+  /**
+   * MDC Text Field の HTML を生成
+   * @param {string} id - Input要素のID (name属性も兼ねる)
+   * @param {string} label - フローティングラベルのテキスト
+   * @param {string} value - 初期値
+   * @param {boolean} required - 必須項目か
+   * @param {string} helperText - ヘルパーテキスト (オプション)
+   * @param {string} type - input type (text, date, time, etc.)
+   * @param {boolean} disabled - 無効状態にするか
+   * @return {string} MDC Text Field の HTML 文字列
+   */
+  function createMdcTextFieldHtml(id, label, value = '', required = false, helperText = '', type = 'text', disabled = false) {
+    const helperLine = helperText ? `
+    <div class="mdc-text-field-helper-line">
+      <div class="mdc-text-field-helper-text" id="${id}-helper" aria-hidden="true">${helperText}</div>
+    </div>` : '';
+
+    return `
+    <label class="mdc-text-field mdc-text-field--outlined ${disabled ? 'mdc-text-field--disabled' : ''} ${required ? 'mdc-text-field--required' : ''}" id="${id}-wrapper">
+      <span class="mdc-notched-outline">
+        <span class="mdc-notched-outline__leading"></span>
+        <span class="mdc-notched-outline__notch">
+          <span class="mdc-floating-label ${value ? 'mdc-floating-label--float-above' : ''}" id="${id}-label">${label}</span>
+        </span>
+        <span class="mdc-notched-outline__trailing"></span>
+      </span>
+      <input type="${type}"
+             id="${id}"
+             name="${id}"
+             class="mdc-text-field__input"
+             aria-labelledby="${id}-label"
+             value="${value}"
+             ${required ? 'required' : ''}
+             ${disabled ? 'disabled' : ''}
+             ${helperText ? `aria-controls="${id}-helper" aria-describedby="${id}-helper"` : ''}>
+    </label>
+    ${helperLine}`;
+  }
+
+  /**
+   * MDC Select の HTML を生成
+   * @param {string} id - Select要素のID (name属性も兼ねる)
+   * @param {string} label - フローティングラベルのテキスト
+   * @param {Array<string>} options - 選択肢の配列
+   * @param {string} selectedValue - 事前選択される値
+   * @param {boolean} required - 必須項目か
+   * @return {string} MDC Select の HTML 文字列
+   */
+  function createMdcSelectHtml(id, label, options, selectedValue = '', required = false) {
+    let listItems = `<li class="mdc-list-item" aria-selected="false" data-value="" role="option">
+    <span class="mdc-list-item__ripple"></span>
+    <span class="mdc-list-item__text"></span>
+  </li>`;
+
+    options.forEach(option => {
+      const isSelected = option === selectedValue;
+      listItems += `
+      <li class="mdc-list-item ${isSelected ? 'mdc-list-item--selected' : ''}" aria-selected="${isSelected}" data-value="${option}" role="option">
+        <span class="mdc-list-item__ripple"></span>
+        <span class="mdc-list-item__text">${option}</span>
+      </li>`;
+    });
+
+    return `
+    <div class="mdc-select mdc-select--outlined ${required ? 'mdc-select--required' : ''}" id="${id}">
+      <div class="mdc-select__anchor" role="button" aria-haspopup="listbox" aria-expanded="false" ${required ? 'aria-required="true"' : ''} aria-labelledby="${id}-label ${id}-selected-text">
+        <span class="mdc-notched-outline">
+          <span class="mdc-notched-outline__leading"></span>
+          <span class="mdc-notched-outline__notch">
+            <span id="${id}-label" class="mdc-floating-label ${selectedValue ? 'mdc-floating-label--float-above' : ''}">${label}</span>
+          </span>
+          <span class="mdc-notched-outline__trailing"></span>
+        </span>
+        <span class="mdc-select__selected-text-container">
+          <span id="${id}-selected-text" class="mdc-select__selected-text">${selectedValue || ''}</span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+          <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+            <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd" points="7 10 12 15 17 10"></polygon>
+            <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd" points="7 15 12 10 17 15"></polygon>
+          </svg>
+        </span>
+      </div>
+      <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox" aria-label="${label} selection">
+          ${listItems}
+        </ul>
+      </div>
+    </div>`;
+  }
+
+  /**
+   * MDC Checkbox の HTML を生成
+   * @param {string} id - Checkbox入力要素のID (name属性も兼ねる)
+   * @param {string} label - ラベルテキスト
+   * @param {boolean} checked - 事前チェック状態
+   * @return {string} MDC Checkbox の HTML 文字列
+   */
+  function createMdcCheckboxHtml(id, label, checked = false) {
+    const escapedId = id.replace(/\./g, '\\.'); // CSSセレクタ用エスケープ
+
+    return `
+    <div class="mdc-form-field">
+      <div class="mdc-checkbox">
+        <input type="checkbox"
+               class="mdc-checkbox__native-control"
+               id="${id}"
+               name="${id}"
+               ${checked ? 'checked' : ''}/>
+        <div class="mdc-checkbox__background">
+          <svg class="mdc-checkbox__checkmark" viewBox="0 0 24 24">
+            <path class="mdc-checkbox__checkmark-path" fill="none" d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
+          </svg>
+          <div class="mdc-checkbox__mixedmark"></div>
+        </div>
+        <div class="mdc-checkbox__ripple"></div>
+      </div>
+      <label for="${id}">${label}</label>
+    </div>`;
+  }
+
+  /**
+   * MDC Switch の HTML を生成
+   * @param {string} id - Switch入力要素のID (name属性も兼ねる)
+   * @param {string} label - ラベルテキスト
+   * @param {boolean} checked - 事前チェック状態
+   * @return {string} MDC Switch の HTML 文字列
+   */
+  function createMdcSwitchHtml(id, label, checked = false) {
+    return `
+    <div class="mdc-form-field">
+      <div class="mdc-switch ${checked ? 'mdc-switch--selected' : ''}" id="${id}-switch">
+        <div class="mdc-switch__track"></div>
+        <div class="mdc-switch__handle-track">
+          <div class="mdc-switch__handle">
+            <div class="mdc-switch__shadow">
+              <div class="mdc-elevation-overlay"></div>
+            </div>
+            <div class="mdc-switch__ripple"></div>
+            <div class="mdc-switch__icons">
+              <svg class="mdc-switch__icon mdc-switch__icon--on" viewBox="0 0 24 24">
+                <path d="M19.69,5.23L8.96,15.96l-4.23-4.23L2.96,13.5l6,6L21.46,6.96L19.69,5.23z"/>
+              </svg>
+              <svg class="mdc-switch__icon mdc-switch__icon--off" viewBox="0 0 24 24">
+                <path d="M20 13H4v-2h16v2z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <label for="${id}-switch">${label}</label>
+      <input type="checkbox" id="${id}" name="${id}" class="mdc-switch__native-control" role="switch" ${checked ? 'checked' : ''} style="display: none;">
+    </div>`;
+  }
+</script>

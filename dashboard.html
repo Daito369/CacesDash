@@ -1,0 +1,846 @@
+<script>
+    /**
+     * dashboard.html - ダッシュボード機能
+     * アクティブケースの表示、編集モーダルの処理
+     */
+
+    /**
+     * ダッシュボードの初期化
+     * script.js の loadSettings 成功後に呼び出される想定
+     */
+    function initializeDashboard() {
+        const container = document.getElementById('activeCasesList');
+        if (!container) {
+            console.error("Dashboard container #activeCasesList not found.");
+            return;
+        }
+
+        // スプレッドシートIDチェック
+        if (!currentSettings || !currentSettings.spreadsheetId) {
+            container.innerHTML = `
+          <div class="not-configured-message">
+            <i class="material-icons-outlined">settings</i>
+            <p>スプレッドシートIDが設定されていません。「設定」タブで設定してください。</p>
+          </div>
+        `;
+            return;
+        }
+
+        // 更新ボタンのリスナー（初回のみ設定）
+        const refreshButton = document.getElementById('refreshDashboard');
+        if (refreshButton && !refreshButton.dataset.listenerAttached) {
+            refreshButton.addEventListener('click', loadCasesData);
+            refreshButton.dataset.listenerAttached = 'true'; // 再設定防止
+        }
+
+        // ケースデータ読み込み開始
+        loadCasesData();
+    }
+
+    /**
+     * ケースデータの読み込み (GAS呼び出し)
+     */
+    function loadCasesData() {
+        const container = document.getElementById('activeCasesList');
+        if (!container) return;
+
+        // ローディング表示
+        container.innerHTML = `
+        <div class="loading-container">
+          <div class="mdc-linear-progress mdc-linear-progress--indeterminate" role="progressbar" aria-label="Loading cases" aria-valuemin="0" aria-valuemax="1">
+            <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-dots"></div><div class="mdc-linear-progress__buffer-bar"></div></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+          </div>
+          <p>担当ケースを読み込み中...</p>
+        </div>
+      `;
+
+        // プログレスバーの初期化
+        const progressBar = container.querySelector('.mdc-linear-progress');
+        if (progressBar) {
+            new mdc.linearProgress.MDCLinearProgress(progressBar);
+        }
+
+        google.script.run
+            .withSuccessHandler(result => {
+                if (result.success) {
+                    displayCasesData(result.data); // 取得成功
+                } else {
+                    // エラーメッセージ表示
+                    container.innerHTML = `
+              <div class="error-message">
+                <i class="material-icons-outlined">error_outline</i>
+                <p>${result.message || 'データの取得に失敗しました。'}</p>
+              </div>
+            `;
+                    showSnackbar(result.message || 'データの取得に失敗しました。', 'error');
+                }
+            })
+            .withFailureHandler(error => {
+                // 通信エラーなどの表示
+                container.innerHTML = `
+            <div class="error-message">
+              <i class="material-icons-outlined">cloud_off</i>
+              <p>データの取得中にエラーが発生しました: ${error.message}</p>
+              <button class="mdc-button mdc-button--outlined retry-load-btn" style="margin-top: 16px;">
+                <span class="mdc-button__ripple"></span>
+                <span class="mdc-button__label">再試行</span>
+              </button>
+            </div>
+          `;
+                // 再試行ボタンにリスナーを追加
+                const retryBtn = container.querySelector('.retry-load-btn');
+                if (retryBtn) {
+                    new mdc.ripple.MDCRipple(retryBtn);
+                    retryBtn.addEventListener('click', loadCasesData);
+                }
+                showSnackbar(`データ取得エラー: ${error.message}`, 'error');
+            })
+            .getAllSheetData(); // GAS関数呼び出し (全シートから取得)
+    }
+
+    /**
+     * 取得したケースデータをダッシュボードに表示
+     * @param {Array<Object>} casesData - GASから取得したケースデータの配列
+     */
+    function displayCasesData(casesData) {
+        const container = document.getElementById('activeCasesList');
+        if (!container) return;
+
+        // "Assigned" ステータスのケースのみフィルタリング
+        const assignedCases = casesData.filter(caseData => caseData['Case Status'] === 'Assigned');
+
+        if (assignedCases.length === 0) {
+            container.innerHTML = `
+          <div class="empty-message">
+            <i class="material-icons-outlined">task_alt</i>
+            <p>現在、対応中のケース (Assigned) はありません。</p>
+          </div>
+        `;
+            return;
+        }
+
+        // HTML生成
+        let html = '';
+        assignedCases.forEach((caseData, index) => {
+            html += createCaseCardHtml(caseData, index); // index はキー用
+        });
+
+        // コンテナにHTMLを設定
+        container.innerHTML = html;
+
+        // 動的に生成された要素にMDC初期化とイベントリスナーを設定
+        container.querySelectorAll('.mdc-card').forEach(card => {
+            // MDC Card初期化は不要 (主にリップルのため)
+            card.querySelectorAll('.mdc-button').forEach(btn => new mdc.ripple.MDCRipple(btn));
+        });
+
+        setupCaseCardEventListeners(container); // カード内のボタンにリスナーを設定
+        updateTimers(); // タイマーを初期表示
+    }
+
+    /**
+     * ケースカードのHTMLを生成
+     * @param {Object} caseData - ケースデータオブジェクト
+     * @param {number} index - ループのインデックス (キー用)
+     * @param {boolean} isSearchResult - 検索結果からの表示かどうか (オプション)
+     * @return {string} ケースカードのHTML文字列
+     */
+    function createCaseCardHtml(caseData, index, isSearchResult = false) {
+        if (!caseData || !caseData['Case ID']) {
+            console.warn("Invalid case data provided to createCaseCardHtml:", caseData);
+            return ''; // 無効なデータの場合は空文字を返す
+        }
+
+        const caseId = caseData['Case ID'];
+        const status = caseData['Case Status'] || '不明';
+        const statusClass = getStatusClass(status);
+        const date = formatDate(caseData['Date']);
+        const time = formatTime(caseData['Time']);
+
+        // スプレッドシート内のM3セルに対応するデッドラインタイマー (AJ列)
+        const deadline = caseData['Deadline'] ? formatDate(caseData['Deadline']) + ' ' + formatTime(caseData['Deadline']) : '';
+
+        // カラーアクセント (ステータスによって色を変更)
+        let accentColor = 'var(--md-sys-color-primary)';
+        let cardClass = '';
+
+        if (status === 'Solution Offered') {
+            accentColor = 'var(--md-sys-color-warning)';
+            cardClass = 'status-solution-offered-card';
+        } else if (status === 'Finished') {
+            accentColor = 'var(--md-sys-color-tertiary)';
+            cardClass = 'status-finished-card';
+        }
+
+        let html = `
+        <div class="mdc-card mdc-card--outlined case-card ${cardClass}" data-case-id="${caseId}" key="case-${index}" style="--card-accent-color: ${accentColor};">
+          <div class="mdc-card__content">
+            <div class="case-card-header">
+              <div class="case-id" title="${caseId}">
+                <i class="material-icons-outlined" aria-hidden="true">assignment</i>
+                <a href="https://cases.connect.corp.google.com/#/case/${caseId}" target="_blank" rel="noopener noreferrer">${caseId}</a>
+              </div>
+              <div class="case-status ${statusClass}" title="ステータス: ${status}">${status}</div>
+            </div>
+    
+            <div class="case-info">
+              <div class="info-item">
+                <div class="info-label">Case Open</div>
+                <div class="info-value">${date} ${time}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">セグメント</div>
+                <div class="info-value">${caseData['Segment'] || '-'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">製品カテゴリ</div>
+                <div class="info-value">${caseData['Product Category'] || '-'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">担当者 (1st)</div>
+                <div class="info-value">${caseData['1st Assignee'] || '-'}</div>
+              </div>
+            </div>
+            
+            <div class="case-info">
+              <div class="info-item">
+                <div class="info-label">問題カテゴリ</div>
+                <div class="info-value">${caseData['Issue Category'] || '-'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">最終担当者</div>
+                <div class="info-value">${caseData['Final Assignee'] || '-'}</div>
+              </div>
+            </div>`;
+
+        // オプション項目表示
+        const optionalItems = [];
+        if (caseData['Bug'] && caseData['Bug'] !== 'FALSE' && caseData['Bug'] !== '0')
+            optionalItems.push('Bug');
+        if (caseData['Need Info'] && caseData['Need Info'] !== 'FALSE' && caseData['Need Info'] !== '0')
+            optionalItems.push('Need Info');
+        if (caseData['AM Transfer'])
+            optionalItems.push(`AM: ${caseData['AM Transfer']}`);
+        if (caseData['non NCC'])
+            optionalItems.push(`non NCC: ${caseData['non NCC']}`);
+
+        if (optionalItems.length > 0) {
+            html += `
+            <div class="status-collection">
+              ${optionalItems.map(item => `<div class="status-chip">${item}</div>`).join('')}
+            </div>`;
+        }
+
+        // タイマー表示 (Assigned ステータスの場合)
+        if (status === 'Assigned') {
+            // TRT Timer (M列相当)
+            const trtDeadline = caseData['TRT Date+Time']; // AJ列相当
+            // P95 Timer (72時間 or 7日間)
+            const p95DurationHours = caseData['T&S Consulted'] === 'Yes' ? 7 * 24 : 72; // T&S Consulted 列をチェック
+            const caseOpenDateTime = new Date(`${date} ${time}`);
+            const p95Deadline = new Date(caseOpenDateTime.getTime() + p95DurationHours * 60 * 60 * 1000);
+
+            html += `
+            <div class="timers-container">
+              <div class="case-timer trt-timer"
+                   ${trtDeadline ? `data-deadline="${trtDeadline}"` : ''}
+                   data-status="${status}">
+                <i class="material-icons-outlined timer-icon" aria-hidden="true">timer</i>
+                <span class="timer-label">TRT:</span>
+                <span class="timer-value">--:--:--</span>
+              </div>
+              <div class="case-timer p95-timer"
+                   data-deadline="${p95Deadline.toISOString()}"
+                   data-status="${status}">
+                <i class="material-icons-outlined timer-icon" aria-hidden="true">schedule</i>
+                <span class="timer-label">P95:</span>
+                <span class="timer-value">--:--:--</span>
+              </div>
+            </div>`;
+        }
+
+        // 最終アクション日時
+        if (status !== 'Assigned') {
+            let lastActionDate = '';
+            let lastActionTime = '';
+
+            if (caseData['Reopen Close Date']) {
+                lastActionDate = formatDate(caseData['Reopen Close Date']);
+                lastActionTime = formatTime(caseData['Reopen Close Time']) || '';
+            } else if (caseData['1st Close Date']) {
+                lastActionDate = formatDate(caseData['1st Close Date']);
+                lastActionTime = formatTime(caseData['1st Close Time']) || '';
+            }
+
+            if (lastActionDate) {
+                html += `
+              <div class="case-info">
+                <div class="info-item">
+                  <div class="info-label">最終アクション日時</div>
+                  <div class="info-value">${lastActionDate} ${lastActionTime}</div>
+                </div>
+              </div>`;
+            }
+        }
+
+        html += `
+          </div>
+          <div class="mdc-card__actions case-actions">`;
+
+        // 検索結果でかつAssignedでない場合は「ダッシュボードに追加」ボタンを表示
+        if (isSearchResult && status !== 'Assigned') {
+            html += `
+              <button class="mdc-button mdc-button--outlined add-to-dashboard-btn" data-case-id="${caseId}" title="このケースを再度アクティブにする">
+                <span class="mdc-button__ripple"></span>
+                <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">add</i>
+                <span class="mdc-button__label">アクティブ化</span>
+              </button>`;
+        }
+
+        // 編集ボタンと削除ボタン
+        html += `
+            <button class="mdc-button mdc-button--raised edit-case-btn" data-case-id="${caseId}">
+              <span class="mdc-button__ripple"></span>
+              <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">edit</i>
+              <span class="mdc-button__label">編集</span>
+            </button>
+            <button class="mdc-icon-button delete-case-btn" data-case-id="${caseId}" title="このケースをダッシュボードから削除 (ステータスをFinishedに変更)">
+              <div class="mdc-icon-button__ripple"></div>
+              <span class="material-icons-outlined">delete</span>
+            </button>
+          </div>
+        </div>`;
+
+        return html;
+    }
+
+    /**
+     * ケースカード内のボタンにイベントリスナーを設定
+     * @param {HTMLElement} container - イベントリスナーを設定する範囲の親要素
+     */
+    function setupCaseCardEventListeners(container) {
+        if (!container) return;
+
+        // 編集ボタン
+        container.querySelectorAll('.edit-case-btn').forEach(button => {
+            button.addEventListener('click', handleEditButtonClick);
+        });
+
+        // ダッシュボードに追加ボタン
+        container.querySelectorAll('.add-to-dashboard-btn').forEach(button => {
+            button.addEventListener('click', handleAddToDashboardClick);
+        });
+
+        // 削除ボタン
+        container.querySelectorAll('.delete-case-btn').forEach(button => {
+            button.addEventListener('click', handleDeleteButtonClick);
+        });
+    }
+
+    // 編集ボタンクリックハンドラ
+    function handleEditButtonClick(event) {
+        const button = event.currentTarget;
+        const caseId = button.dataset.caseId;
+        if (caseId) {
+            openCaseEditModal(caseId);
+        } else {
+            console.error("Case ID not found on edit button.");
+        }
+    }
+
+    // ダッシュボード追加ボタンクリックハンドラ
+    function handleAddToDashboardClick(event) {
+        const button = event.currentTarget;
+        const caseId = button.dataset.caseId;
+        const card = button.closest('.case-card');
+
+        if (caseId && card) {
+            // ボタンを一時的に無効化し、ローディング表示
+            button.disabled = true;
+            const originalLabel = button.querySelector('.mdc-button__label').textContent;
+            button.querySelector('.mdc-button__label').textContent = '処理中...';
+            button.querySelector('.material-icons-outlined').textContent = 'hourglass_empty';
+
+            // Caseステータスを「Assigned」に変更するためのデータ
+            const updateData = {
+                caseStatus: 'Assigned'
+            };
+
+            // Case IDでケースを検索して行番号を取得
+            google.script.run
+                .withSuccessHandler(searchResult => {
+                    if (searchResult.success) {
+                        // 行番号が取得できた場合、ステータスを更新
+                        google.script.run
+                            .withSuccessHandler(updateResult => {
+                                if (updateResult.success) {
+                                    showSnackbar(`ケース ${caseId} を再アクティブ化しました。`, 'success');
+
+                                    // 検索画面の場合はカードを更新せず、ダッシュボードの再読み込みを促す
+                                    if (card.closest('#searchResultContainer')) {
+                                        button.disabled = false;
+                                        button.querySelector('.mdc-button__label').textContent = 'アクティブ化済み';
+                                        button.querySelector('.material-icons-outlined').textContent = 'check';
+
+                                        // ダッシュボードタブの再読み込みを促すメッセージ
+                                        setTimeout(() => {
+                                            showSnackbar('ダッシュボードタブで更新を押してください。', 'info');
+                                        }, 1000);
+                                    } else {
+                                        // ダッシュボード画面の場合は直接再読み込み
+                                        loadCasesData();
+                                    }
+                                } else {
+                                    showSnackbar(updateResult.message || 'ステータス更新に失敗しました。', 'error');
+                                    // ボタンを元に戻す
+                                    button.disabled = false;
+                                    button.querySelector('.mdc-button__label').textContent = originalLabel;
+                                    button.querySelector('.material-icons-outlined').textContent = 'add';
+                                }
+                            })
+                            .withFailureHandler(error => {
+                                showSnackbar(`ステータス更新エラー: ${error.message}`, 'error');
+                                // ボタンを元に戻す
+                                button.disabled = false;
+                                button.querySelector('.mdc-button__label').textContent = originalLabel;
+                                button.querySelector('.material-icons-outlined').textContent = 'add';
+                            })
+                            .updateCaseData(searchResult.rowIndex, updateData);
+                    } else {
+                        showSnackbar(searchResult.message || 'ケースが見つかりません。', 'error');
+                        // ボタンを元に戻す
+                        button.disabled = false;
+                        button.querySelector('.mdc-button__label').textContent = originalLabel;
+                        button.querySelector('.material-icons-outlined').textContent = 'add';
+                    }
+                })
+                .withFailureHandler(error => {
+                    showSnackbar(`ケース検索エラー: ${error.message}`, 'error');
+                    // ボタンを元に戻す
+                    button.disabled = false;
+                    button.querySelector('.mdc-button__label').textContent = originalLabel;
+                    button.querySelector('.material-icons-outlined').textContent = 'add';
+                })
+                .searchCaseById(caseId);
+        } else {
+            showSnackbar('ケースIDが見つかりません。', 'error');
+        }
+    }
+
+    // 削除ボタンクリックハンドラ
+    function handleDeleteButtonClick(event) {
+        const button = event.currentTarget;
+        const caseId = button.dataset.caseId;
+        const card = button.closest('.case-card');
+
+        if (caseId && card) {
+            // 確認ダイアログを表示 (MDC Dialogを使用)
+            if (confirm(`ケース ${caseId} をダッシュボードから削除しますか？\n(ステータスが "Finished" に変更されます)`)) {
+                // ボタンを一時的に無効化
+                button.disabled = true;
+
+                // Caseステータスを「Finished」に変更するためのデータ
+                const updateData = {
+                    caseStatus: 'Finished'
+                };
+
+                // Case IDでケースを検索して行番号を取得
+                google.script.run
+                    .withSuccessHandler(searchResult => {
+                        if (searchResult.success) {
+                            // 行番号が取得できた場合、ステータスを更新
+                            google.script.run
+                                .withSuccessHandler(updateResult => {
+                                    if (updateResult.success) {
+                                        showSnackbar(`ケース ${caseId} を削除しました。`, 'success');
+                                        // カードを非表示にするアニメーションなどを追加しても良い
+                                        card.remove(); // カードをDOMから削除
+                                        // もしカードがなくなったら空メッセージを表示
+                                        const container = document.getElementById('activeCasesList');
+                                        if (container && container.children.length === 0) {
+                                            container.innerHTML = `
+                                              <div class="empty-message">
+                                                <i class="material-icons-outlined">task_alt</i>
+                                                <p>現在、対応中のケース (Assigned) はありません。</p>
+                                              </div>
+                                            `;
+                                        }
+                                    } else {
+                                        showSnackbar(updateResult.message || 'ケース削除に失敗しました。', 'error');
+                                        button.disabled = false; // ボタンを元に戻す
+                                    }
+                                })
+                                .withFailureHandler(error => {
+                                    showSnackbar(`ケース削除エラー: ${error.message}`, 'error');
+                                    button.disabled = false; // ボタンを元に戻す
+                                })
+                                .updateCaseData(searchResult.rowIndex, updateData);
+                        } else {
+                            showSnackbar(searchResult.message || 'ケースが見つかりません。', 'error');
+                            button.disabled = false; // ボタンを元に戻す
+                        }
+                    })
+                    .withFailureHandler(error => {
+                        showSnackbar(`ケース検索エラー: ${error.message}`, 'error');
+                        button.disabled = false; // ボタンを元に戻す
+                    })
+                    .searchCaseById(caseId);
+            }
+        } else {
+            showSnackbar('ケースIDが見つかりません。', 'error');
+        }
+    }
+
+    /**
+     * ケース編集モーダルを開く
+     * @param {string} caseId - 編集対象のケースID
+     */
+    function openCaseEditModal(caseId) {
+        if (!mdcDialog) {
+            console.error("MDC Dialog is not initialized.");
+            showSnackbar("編集ダイアログを開けません。", "error");
+            return;
+        }
+
+        const modalContent = document.getElementById('caseDetailContent');
+        const saveButton = document.getElementById('saveCaseChangesBtn');
+
+        // モーダルコンテンツをリセットし、ローディング表示
+        modalContent.innerHTML = `
+        <div class="loading-container">
+          <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+            <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-dots"></div><div class="mdc-linear-progress__buffer-bar"></div></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+:start_line:540
+:end_line:540
+-------
+          </div>
+          <!-- T&S Consulted (Switch) -->
+          <div class="form-group">
+            ${createMdcSwitchHtml('tsConsulted', 'T&S Consulted', caseData['T&S Consulted'] === 'Yes')}
+          </div>
+          <p>ケース ${caseId} の情報を読み込み中...</p>
+        </div>`;
+        const progressBar = modalContent.querySelector('.mdc-linear-progress');
+        if (progressBar) new mdc.linearProgress.MDCLinearProgress(progressBar);
+
+        // 保存ボタンを一旦非表示にし、リスナーをクリア
+        if (saveButton) {
+            saveButton.style.display = 'none';
+            // 古いリスナーを削除
+            saveButton.replaceWith(saveButton.cloneNode(true));
+        }
+
+        // モーダルを開く
+        mdcDialog.open();
+
+        // ケースデータをGASから取得 (行番号も取得)
+        google.script.run
+            .withSuccessHandler(result => {
+                if (result.success) {
+                    displayCaseEditForm(result.data, result.rowIndex, modalContent); // 行番号も渡す
+                } else {
+                    modalContent.innerHTML = `
+              <div class="error-message">
+                <i class="material-icons-outlined">error</i>
+                <p>${result.message || 'ケース情報の取得に失敗しました。'}</p>
+              </div>`;
+                    showSnackbar(result.message || 'ケース情報の取得に失敗しました。', 'error');
+                }
+            })
+            .withFailureHandler(error => {
+                modalContent.innerHTML = `
+            <div class="error-message">
+              <i class="material-icons-outlined">cloud_off</i>
+              <p>ケース情報の取得エラー: ${error.message}</p>
+            </div>`;
+                showSnackbar(`ケース情報取得エラー: ${error.message}`, 'error');
+            })
+            .searchCaseById(caseId); // GAS関数呼び出し
+    }
+
+    /**
+     * ケース編集フォームをモーダル内に表示
+     * @param {Object} caseData - GASから取得したケースデータ
+     * @param {number} rowIndex - スプレッドシート上の行番号
+     * @param {HTMLElement} container - フォームを表示するコンテナ要素
+     */
+    function displayCaseEditForm(caseData, rowIndex, container) {
+        if (!caseData || !rowIndex || !container) {
+            console.error("Invalid arguments for displayCaseEditForm", { caseData, rowIndex, container });
+            container.innerHTML = `<div class="error-message"><p>フォーム表示中にエラーが発生しました。</p></div>`;
+            return;
+        }
+
+        // formDefinitions が設定されているか確認
+        if (typeof formDefinitions === 'undefined' ||
+            !formDefinitions.caseStatus ||
+            !formDefinitions.amTransfer ||
+            !formDefinitions.nonNCC ||
+            !formDefinitions.reopenReason) {
+            console.error("Form definitions are missing or incomplete.");
+            container.innerHTML = `<div class="error-message"><p>フォーム定義の読み込みに失敗しました。</p></div>`;
+            return;
+        }
+
+        // Switches
+        formElement.querySelectorAll('.mdc-switch').forEach(el => new mdc.switchControl.MDCSwitch(el));
+
+        const caseId = caseData['Case ID'];
+        const currentStatus = caseData['Case Status'];
+        const isClosed = currentStatus === 'Solution Offered' || currentStatus === 'Finished';
+        const firstCloseDate = caseData['1st Close Date'];
+        const firstCloseTime = caseData['1st Close Time'];
+
+        // 編集可能なフィールドのみフォームにする
+        let formHtml = `
+        <form id="caseEditForm" data-row-index="${rowIndex}">
+          <h3 style="font-family: var(--md-sys-typescale-title-medium-font-family); font-size: var(--md-sys-typescale-title-medium-size); font-weight: var(--md-sys-typescale-title-medium-weight); color: var(--md-sys-color-primary); margin-bottom: 16px;">基本情報 (編集不可)</h3>
+          <div class="form-grid">
+            <div class="info-item"><div class="info-label">Case ID</div><div class="info-value">${caseId}</div></div>
+            <div class="info-item"><div class="info-label">開始日時</div><div class="info-value">${formatDate(caseData['Date'])} ${formatTime(caseData['Time'])}</div></div>
+            <div class="info-item"><div class="info-label">担当者 (1st)</div><div class="info-value">${caseData['1st Assignee'] || '-'}</div></div>
+            <div class="info-item"><div class="info-label">セグメント</div><div class="info-value">${caseData['Segment'] || '-'}</div></div>
+            <div class="info-item"><div class="info-label">製品カテゴリ</div><div class="info-value">${caseData['Product Category'] || '-'}</div></div>
+            <div class="info-item"><div class="info-label">問題カテゴリ</div><div class="info-value">${caseData['Issue Category'] || '-'}</div></div>
+          </div>
+    
+          <hr style="margin: 24px 0; border-color: var(--md-sys-color-outline);">
+    
+          <h3 style="font-family: var(--md-sys-typescale-title-medium-font-family); font-size: var(--md-sys-typescale-title-medium-size); font-weight: var(--md-sys-typescale-title-medium-weight); color: var(--md-sys-color-primary); margin-bottom: 16px;">ステータス・任意項目 (編集可能)</h3>
+          <div class="form-grid">
+            <!-- Case Status (Select) -->
+            <div class="form-group required">
+              ${createMdcSelectHtml('caseStatus', 'ケースステータス', formDefinitions.caseStatus, currentStatus, true)}
+            </div>
+            <!-- AM Transfer (Select) -->
+            <div class="form-group">
+              ${createMdcSelectHtml('amTransfer', 'AM Transfer', formDefinitions.amTransfer, caseData['AM Transfer'] || '')}
+            </div>
+            <!-- non NCC (Select) -->
+            <div class="form-group">
+              ${createMdcSelectHtml('nonNCC', 'non NCC', formDefinitions.nonNCC, caseData['non NCC'] || '')}
+            </div>
+          </div>
+    
+          <div class="form-grid checkbox-grid" style="margin-top: 16px;">
+            <!-- Bug (Checkbox) -->
+            <div class="form-group">
+              ${createMdcCheckboxHtml('bug', 'Bug', caseData['Bug'] && caseData['Bug'] !== 'FALSE' && caseData['Bug'] !== '0')}
+            </div>
+            <!-- Need Info (Checkbox) -->
+            <div class="form-group">
+              ${createMdcCheckboxHtml('needInfo', 'Need Info', caseData['Need Info'] && caseData['Need Info'] !== 'FALSE' && caseData['Need Info'] !== '0')}
+            </div>
+          </div>
+          
+          <hr style="margin: 24px 0; border-color: var(--md-sys-color-outline);">
+          
+          <h3 style="font-family: var(--md-sys-typescale-title-medium-font-family); font-size: var(--md-sys-typescale-title-medium-size); font-weight: var(--md-sys-typescale-title-medium-weight); color: var(--md-sys-color-primary); margin-bottom: 16px;">クローズ情報</h3>
+          <div class="form-grid">
+            <!-- 1st Close Date (Date Picker) -->
+            <div class="form-group">
+              ${createMdcTextFieldHtml('firstCloseDate', '初回クローズ日付', firstCloseDate || '', false, 'YYYY/MM/DD形式')}
+            </div>
+            <!-- 1st Close Time (Time Picker) -->
+            <div class="form-group">
+              ${createMdcTextFieldHtml('firstCloseTime', '初回クローズ時間', firstCloseTime || '', false, 'HH:MM:SS形式')}
+            </div>
+          </div>`;
+
+        // 再オープン理由 (初回クローズ済みの場合のみ表示)
+        if (firstCloseDate) {
+            formHtml += `
+          <div class="form-grid" style="margin-top: 16px;">
+            <div class="form-group">
+              ${createMdcSelectHtml('reopenReason', '再オープン理由', formDefinitions.reopenReason, caseData['Reopen Reason'] || '')}
+            </div>
+            <!-- Reopen Close Date (Date Picker) -->
+            <div class="form-group">
+              ${createMdcTextFieldHtml('reopenCloseDate', '再クローズ日付', caseData['Reopen Close Date'] || '', false, 'YYYY/MM/DD形式')}
+            </div>
+            <!-- Reopen Close Time (Time Picker) -->
+            <div class="form-group">
+              ${createMdcTextFieldHtml('reopenCloseTime', '再クローズ時間', caseData['Reopen Close Time'] || '', false, 'HH:MM:SS形式')}
+            </div>
+          </div>
+        `;
+        }
+
+        formHtml += `</form>`;
+
+        // コンテナにHTMLを設定
+        container.innerHTML = formHtml;
+
+        // 動的に生成されたMDCコンポーネントを初期化
+        const formElement = container.querySelector('#caseEditForm');
+
+        // Selects
+        formElement.querySelectorAll('.mdc-select').forEach(el => new mdc.select.MDCSelect(el));
+
+        // Checkboxes
+        formElement.querySelectorAll('.mdc-checkbox').forEach(el => new mdc.checkbox.MDCCheckbox(el));
+        formElement.querySelectorAll('.mdc-form-field').forEach(el => new mdc.formField.MDCFormField(el));
+
+        // Text Fields
+        formElement.querySelectorAll('.mdc-text-field').forEach(el => new mdc.textField.MDCTextField(el));
+
+        // 日付ピッカー初期化
+        if (formElement.querySelector('#firstCloseDate')) {
+            initDatePicker(formElement.querySelector('#firstCloseDate'));
+        }
+        if (formElement.querySelector('#reopenCloseDate')) {
+            initDatePicker(formElement.querySelector('#reopenCloseDate'));
+        }
+
+        // 時間ピッカー初期化
+        if (formElement.querySelector('#firstCloseTime')) {
+            initTimePicker(formElement.querySelector('#firstCloseTime'));
+        }
+        if (formElement.querySelector('#reopenCloseTime')) {
+            initTimePicker(formElement.querySelector('#reopenCloseTime'));
+        }
+
+        // 保存ボタンを表示し、イベントリスナーを設定
+        const saveButton = document.getElementById('saveCaseChangesBtn');
+        if (saveButton) {
+            saveButton.style.display = 'inline-flex'; // 表示
+            // 新しいリスナーを設定
+            saveButton.addEventListener('click', () => {
+                const formData = collectEditFormData(formElement);
+                if (formData) {
+                    updateCaseData(rowIndex, formData); // rowIndex を渡す
+                }
+            });
+            // リップル初期化
+            new mdc.ripple.MDCRipple(saveButton);
+        }
+    }
+
+    /**
+     * 編集フォームからデータを収集する
+     * @param {HTMLFormElement} formElement - フォーム要素
+     * @return {Object|null} 収集したデータオブジェクト、またはバリデーションエラー時に null
+     */
+    function collectEditFormData(formElement) {
+        if (!formElement) return null;
+        const formData = {};
+        let isValid = true;
+
+        // Selects
+        formElement.querySelectorAll('.mdc-select').forEach(selectEl => {
+            const selectComponent = mdc.select.MDCSelect.attachTo(selectEl);
+            const name = selectEl.id;
+            formData[name] = selectComponent.value;
+
+            // 必須チェック (例: caseStatus)
+            if (selectEl.closest('.form-group.required') && !selectComponent.value) {
+                console.warn(`Validation failed: ${name} is required.`);
+                showSnackbar(`${selectEl.querySelector('.mdc-floating-label')?.textContent || name} は必須です。`, 'warn');
+                isValid = false;
+            }
+        });
+
+        // Checkboxes and Switches
+        formElement.querySelectorAll('.mdc-checkbox input[type="checkbox"], .mdc-switch input[type="checkbox"]').forEach(inputEl => {
+            const name = inputEl.id;
+            formData[name] = inputEl.checked;
+        });
+
+        // Text Fields
+        formElement.querySelectorAll('.mdc-text-field input').forEach(inputEl => {
+            const name = inputEl.id;
+            formData[name] = inputEl.value.trim();
+
+            // 日付または時間の簡易バリデーション
+            if (inputEl.value.trim() && (name.includes('Date') || name.includes('Time'))) {
+                let isValidFormat = true;
+
+                if (name.includes('Date')) {
+                    // 日付形式チェック (YYYY/MM/DD)
+                    isValidFormat = /^\d{4}\/\d{2}\/\d{2}$/.test(inputEl.value.trim());
+                } else if (name.includes('Time')) {
+                    // 時間形式チェック (HH:MM:SS)
+                    isValidFormat = /^\d{2}:\d{2}:\d{2}$/.test(inputEl.value.trim());
+                }
+
+                if (!isValidFormat) {
+                    const label = inputEl.closest('.mdc-text-field')?.querySelector('.mdc-floating-label')?.textContent || name;
+                    showSnackbar(`${label} の形式が正しくありません。`, 'warn');
+                    isValid = false;
+                }
+            }
+        });
+
+        return isValid ? formData : null;
+    }
+
+    /**
+     * ケースデータを更新 (GAS呼び出し)
+     * @param {number} rowIndex - 更新する行番号
+     * @param {Object} formData - 更新するデータ
+     */
+    function updateCaseData(rowIndex, formData) {
+        if (!rowIndex || !formData) {
+            showSnackbar("更新データの準備に失敗しました。", "error");
+            return;
+        }
+
+        // 保存ボタンを無効化し、ローディング表示
+        const saveButton = document.getElementById('saveCaseChangesBtn');
+        if (saveButton) {
+            saveButton.disabled = true;
+            const originalLabel = saveButton.querySelector('.mdc-button__label').textContent;
+            saveButton.querySelector('.mdc-button__label').textContent = '保存中...';
+            saveButton.querySelector('.material-icons-outlined').textContent = 'hourglass_empty';
+        }
+
+        google.script.run
+            .withSuccessHandler(result => {
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.querySelector('.mdc-button__label').textContent = '保存';
+                    saveButton.querySelector('.material-icons-outlined').textContent = 'save';
+                }
+
+                if (result.success) {
+                    showSnackbar(result.message || 'ケースが正常に更新されました。', 'success');
+                    mdcDialog.close(); // モーダルを閉じる
+                    // ダッシュボードを更新
+                    loadCasesData();
+                } else {
+                    showSnackbar(result.message || 'ケースの更新に失敗しました。', 'error');
+                }
+            })
+            .withFailureHandler(error => {
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.querySelector('.mdc-button__label').textContent = '保存';
+                    saveButton.querySelector('.material-icons-outlined').textContent = 'save';
+                }
+                showSnackbar(`ケース更新エラー: ${error.message}`, 'error');
+            })
+            .updateCaseData(rowIndex, formData); // GAS関数呼び出し
+    }
+
+    /**
+     * ケースステータスに応じたCSSクラスを取得
+     * @param {string} status - ケースステータス文字列
+     * @return {string} 対応するCSSクラス名
+     */
+    function getStatusClass(status) {
+        switch (status) {
+            case 'Assigned':
+                return 'status-assigned';
+            case 'Solution Offered':
+                return 'status-solution-offered';
+            case 'Finished':
+                return 'status-finished';
+            default:
+                return 'status-unknown'; // 不明なステータス用クラス
+        }
+    }
+</script>

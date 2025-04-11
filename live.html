@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>新規ケース登録 (Live Mode)</title>
+
+    <!-- Material Icons & Symbols -->
+    <link
+        href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round|Material+Symbols+Rounded"
+        rel="stylesheet">
+
+    <!-- Google Fonts (Google Sans & Roboto) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Text:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- MDC Web CSS -->
+    <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+
+    <!-- Flatpickr (Calendar Picker) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+
+    <!-- Custom Styles -->
+    <?!= include('styles'); ?>
+
+    <style>
+        /* Live Mode専用のスタイル調整 */
+        body.live-mode {
+            padding: var(--md-sys-spacing-m);
+            background-color: var(--md-sys-color-surface);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+            overflow-x: hidden;
+        }
+
+        .live-mode-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--md-sys-spacing-l);
+            padding-bottom: var(--md-sys-spacing-s);
+            border-bottom: 1px solid var(--md-sys-color-outline);
+        }
+
+        .live-mode-title {
+            font-family: var(--md-sys-typescale-title-large-font-family);
+            font-size: var(--md-sys-typescale-title-large-size);
+            font-weight: var(--md-sys-typescale-title-large-weight);
+            color: var(--md-sys-color-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--md-sys-spacing-s);
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body class="mdc-typography live-mode">
+
+    <div class="app-container">
+        <!-- Live Mode Header -->
+        <div class="live-mode-header">
+            <h1 class="live-mode-title">
+                <span class="material-symbols-rounded" aria-hidden="true">add_box</span>
+                新規ケース登録 (Live Mode)
+            </h1>
+
+            <div>
+                <button id="themeToggle" class="mdc-icon-button material-icons" aria-label="テーマ切り替え" title="テーマ切り替え">
+                    dark_mode
+                </button>
+            </div>
+        </div>
+
+        <main class="app-content">
+            <!-- New Case Registration Screen Content -->
+            <div class="form-container" id="newCaseFormContainer">
+                <!-- 初期ローディング表示 -->
+                <div class="loading-container">
+                    <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+                        <div class="mdc-linear-progress__buffer">
+                            <div class="mdc-linear-progress__buffer-dots"></div>
+                            <div class="mdc-linear-progress__buffer-bar"></div>
+                        </div>
+                        <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span
+                                class="mdc-linear-progress__bar-inner"></span></div>
+                        <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span
+                                class="mdc-linear-progress__bar-inner"></span></div>
+                    </div>
+                    <p>フォームを準備中...</p>
+                </div>
+                <!-- フォームは caseManagement.js によってここに挿入される -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Snackbar for Notifications -->
+    <aside class="mdc-snackbar" id="appSnackbar">
+        <div class="mdc-snackbar__surface" role="status" aria-relevant="additions text">
+            <div class="mdc-snackbar__label" aria-atomic="false"></div>
+            <div class="mdc-snackbar__actions" aria-atomic="true">
+                <button type="button" class="mdc-icon-button mdc-snackbar__dismiss material-icons"
+                    title="閉じる">close</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
+
+    <!-- Custom Scripts (loaded via GAS include) -->
+    <?!= include('script'); ?>
+    <?!= include('caseManagement'); ?>
+
+    <script>
+        // Live Mode 固有の初期化スクリプト
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("Live Mode DOM Loaded.");
+
+            // テーマ切り替えボタンの初期化
+            const themeToggleBtn = document.getElementById('themeToggle');
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', () => {
+                    if (typeof toggleTheme === 'function') {
+                        toggleTheme();
+                    }
+                });
+                new mdc.ripple.MDCRipple(themeToggleBtn);
+            }
+
+            // 初期テーマを設定
+            if (typeof initializeTheme === 'function') {
+                initializeTheme();
+            }
+
+            // フォーム初期化ポーリング
+            function checkReadyAndInitForm() {
+                // グローバル変数が script.js によって設定されているか確認
+                if (typeof initializeNewCaseForm === 'function' &&
+                    typeof currentSettings !== 'undefined' &&
+                    userInfo !== null &&
+                    typeof formDefinitions !== 'undefined') {
+                    console.log("Live Mode: User info and settings loaded. Initializing New Case Form...");
+                    // エラー表示があればクリア
+                    if (typeof clearContentErrors === 'function') {
+                        clearContentErrors();
+                    }
+                    // 新規ケースフォームを初期化・表示
+                    initializeNewCaseForm();
+                } else {
+                    // まだ準備できていない場合は少し待って再試行
+                    console.log("Live Mode: Waiting for user info and settings...");
+                    setTimeout(checkReadyAndInitForm, 150); // 150ms待機
+                }
+            }
+
+            // 少し遅延させて script.js の DOMContentLoaded 内処理を開始させる
+            setTimeout(checkReadyAndInitForm, 200);
+        });
+    </script>
+
+</body>
+
+</html>

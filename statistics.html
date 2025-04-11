@@ -1,0 +1,971 @@
+<script>
+    /**
+     * statistics.html - NCC統計データの表示とグラフ描画
+     */
+
+    // グローバル変数 (チャートインスタンス保持用)
+    var statsChart = null; // Chart.js インスタンス
+    var currentStatsData = null; // 現在表示中の統計データ
+    var currentChartType = 'line'; // 現在のグラフタイプ
+
+    /**
+     * NCC統計データを読み込む (GAS呼び出し)
+     * @param {string} [period] - 集計期間 (指定なければSelectから取得)
+     */
+    function loadNCCStats(period) {
+        const statsContainer = document.querySelector('#ncc-stats .stats-container');
+        const summaryContainer = document.getElementById('statsSummary');
+        const tableContainer = document.getElementById('statsTableContainer');
+        const chartContainer = document.querySelector('#ncc-stats .chart-container canvas');
+
+        if (!statsContainer || !summaryContainer || !tableContainer || !chartContainer) {
+            console.error("Statistics containers not found.");
+            return;
+        }
+
+        // スプレッドシートIDチェック
+        if (!currentSettings || !currentSettings.spreadsheetId) {
+            statsContainer.innerHTML = `
+          <div class="not-configured-message">
+            <i class="material-icons-outlined">settings</i>
+            <p>スプレッドシートIDが設定されていません。「設定」タブで設定してください。</p>
+          </div>`;
+            return;
+        }
+
+        // 期間を取得 (引数で渡されなければSelectから)
+        const periodSelect = mdcSelectComponents['statsPeriodSelectComponent']; // script.js で初期化済み想定
+        const selectedPeriod = period || (periodSelect ? periodSelect.value : 'weekly'); // デフォルトは週別
+
+        console.log(`Loading NCC Stats for period: ${selectedPeriod}`);
+
+        // ローディング表示
+        summaryContainer.innerHTML = `
+        <div class="loading-container" style="grid-column: 1 / -1;">
+          <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+            <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-dots"></div><div class="mdc-linear-progress__buffer-bar"></div></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+          </div>
+          <p>サマリーを読み込み中...</p>
+        </div>`;
+        tableContainer.innerHTML = `
+        <div class="loading-container">
+          <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+            <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-dots"></div><div class="mdc-linear-progress__buffer-bar"></div></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+            <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+          </div>
+          <p>テーブルデータを読み込み中...</p>
+        </div>`;
+
+        // プログレスバー初期化
+        summaryContainer.querySelectorAll('.mdc-linear-progress').forEach(el => {
+            new mdc.linearProgress.MDCLinearProgress(el);
+        });
+        tableContainer.querySelectorAll('.mdc-linear-progress').forEach(el => {
+            new mdc.linearProgress.MDCLinearProgress(el);
+        });
+
+        // 既存チャートがあれば破棄
+        if (statsChart) {
+            statsChart.destroy();
+            statsChart = null;
+        }
+
+        // GAS呼び出し
+        google.script.run
+            .withSuccessHandler(result => {
+                if (result.success) {
+                    currentStatsData = result.stats; // データを保存
+                    displayStatsData(result.stats, selectedPeriod); // 取得成功
+                } else {
+                    handleStatsError(result.message || '統計データの取得に失敗しました。');
+                    showSnackbar(result.message || '統計データの取得に失敗しました。', 'error');
+                }
+            })
+            .withFailureHandler(error => {
+                handleStatsError(`統計データの取得中にエラーが発生しました: ${error.message}`);
+                showSnackbar(`統計データ取得エラー: ${error.message}`, 'error');
+            })
+            .getNCCStats(selectedPeriod); // GAS関数呼び出し (期間を指定)
+    }
+
+    /**
+     * 統計データ取得エラー時の表示処理
+     * @param {string} message - 表示するエラーメッセージ
+     */
+    function handleStatsError(message) {
+        const summaryContainer = document.getElementById('statsSummary');
+        const tableContainer = document.getElementById('statsTableContainer');
+        const chartContainer = document.querySelector('#ncc-stats .chart-container');
+
+        const errorHtml = `
+        <div class="error-message" style="grid-column: 1 / -1;">
+          <i class="material-icons-outlined">error_outline</i>
+          <p>${message}</p>
+        </div>`;
+
+        if (summaryContainer) summaryContainer.innerHTML = errorHtml;
+        if (tableContainer) tableContainer.innerHTML = errorHtml;
+
+        // チャートをクリア
+        if (statsChart) {
+            statsChart.destroy();
+            statsChart = null;
+        }
+    }
+
+    /**
+     * 統計データを表示 (サマリー、テーブル、チャート)
+     * @param {Array<Object>} statsData - GASから取得した統計データ配列 (指定された期間のもの)
+     * @param {string} period - 表示対象の期間 ('daily', 'weekly', 'monthly', 'quarterly')
+     */
+    function displayStatsData(statsData, period) {
+        const summaryContainer = document.getElementById('statsSummary');
+        const tableContainer = document.getElementById('statsTableContainer');
+        const chartCanvas = document.getElementById('statsChart');
+
+        if (!summaryContainer || !tableContainer || !chartCanvas) {
+            console.error("Statistics display containers not found.");
+            return;
+        }
+
+        // データがない場合
+        if (!statsData || statsData.length === 0) {
+            summaryContainer.innerHTML = `
+          <div class="empty-message" style="grid-column: 1 / -1;">
+            <i class="material-icons-outlined">analytics</i>
+            <p>表示する統計データがありません。</p>
+          </div>`;
+            tableContainer.innerHTML = `
+          <div class="empty-message">
+            <p>データがありません</p>
+          </div>`;
+
+            // チャートをクリア
+            if (statsChart) {
+                statsChart.destroy();
+                statsChart = null;
+            }
+            return;
+        }
+
+        // --- サマリー表示 ---
+        const summary = calculateStatsSummary(statsData);
+        const summaryHtml = `
+        <div class="summary-card">
+          <div class="summary-value">${summary.totalCases}</div>
+          <div class="summary-label">総ケース数 (${getPeriodLabel(period)})</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">${summary.totalFinished}</div>
+          <div class="summary-label">解決済み (${getPeriodLabel(period)})</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">${summary.avgResolutionRate}%</div>
+          <div class="summary-label">平均解決率</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">${statsData[statsData.length - 1].rate}%</div>
+          <div class="summary-label">最新期間解決率<br>(${formatPeriodLabel(statsData[statsData.length - 1].period, period)})</div>
+        </div>
+      `;
+        summaryContainer.innerHTML = summaryHtml;
+
+        // --- テーブル表示 (MDC Data Table) ---
+        tableContainer.innerHTML = createStatsTableHtml(statsData, period);
+        // MDC Data Table の初期化
+        const dataTableElement = tableContainer.querySelector('.mdc-data-table');
+        if (dataTableElement) {
+            new mdc.dataTable.MDCDataTable(dataTableElement);
+        }
+
+        // --- ステータス内訳グラフ ---
+        renderStatsChart(statsData, period, chartCanvas);
+
+        // チャートタイプを初期化 (切り替えボタンの状態を反映)
+        updateChartType(currentChartType);
+    }
+
+    /**
+     * 統計サマリーを計算
+     * @param {Array<Object>} statsData - 統計データ配列
+     * @return {Object} サマリーデータ { totalCases, totalFinished, avgResolutionRate }
+     */
+    function calculateStatsSummary(statsData) {
+        const summary = {
+            totalCases: 0,
+            totalFinished: 0,
+            totalRateSum: 0,
+            validRateCount: 0
+        };
+
+        statsData.forEach(item => {
+            summary.totalCases += item.total;
+            summary.totalFinished += item.finished;
+            const rate = parseFloat(item.rate);
+            if (!isNaN(rate)) {
+                summary.totalRateSum += rate;
+                summary.validRateCount++;
+            }
+        });
+
+        summary.avgResolutionRate = summary.validRateCount > 0
+            ? (summary.totalRateSum / summary.validRateCount).toFixed(1)
+            : 0;
+
+        return summary;
+    }
+
+    /**
+     * 統計テーブルのHTMLを生成 (MDC Data Table)
+     * @param {Array<Object>} statsData - 表示する統計データ
+     * @param {string} period - 期間タイプ
+     * @return {string} テーブルのHTML文字列
+     */
+    function createStatsTableHtml(statsData, period) {
+        let tableRowsHtml = '';
+
+        // 新しいデータから表示 (配列を逆順にする)
+        [...statsData].reverse().forEach(item => {
+            // ステータス内訳を取得
+            let statusBreakdownHtml = '';
+            if (item.statusBreakdown) {
+                const statusEntries = Object.entries(item.statusBreakdown);
+                if (statusEntries.length > 0) {
+                    statusBreakdownHtml = `
+              <div class="status-collection" style="margin-top: 4px;">
+                ${statusEntries.map(([status, count]) =>
+                        `<div class="status-chip ${getStatusClass(status)}">
+                    ${status} <span class="status-count">${count}</span>
+                  </div>`
+                    ).join('')}
+              </div>
+            `;
+                }
+            }
+
+            tableRowsHtml += `
+          <tr class="mdc-data-table__row">
+            <td class="mdc-data-table__cell">${formatPeriodLabel(item.period, period)}</td>
+            <td class="mdc-data-table__cell mdc-data-table__cell--numeric">${item.total}</td>
+            <td class="mdc-data-table__cell mdc-data-table__cell--numeric">${item.finished}</td>
+            <td class="mdc-data-table__cell mdc-data-table__cell--numeric">${item.rate}%</td>
+            <td class="mdc-data-table__cell">${statusBreakdownHtml}</td>
+          </tr>
+        `;
+        });
+
+        return `
+        <div class="mdc-data-table">
+          <div class="mdc-data-table__table-container">
+            <table class="mdc-data-table__table">
+              <thead>
+                <tr class="mdc-data-table__header-row">
+                  <th class="mdc-data-table__header-cell" role="columnheader" scope="col">${getPeriodLabel(period)}</th>
+                  <th class="mdc-data-table__header-cell mdc-data-table__header-cell--numeric" role="columnheader" scope="col">総ケース数</th>
+                  <th class="mdc-data-table__header-cell mdc-data-table__header-cell--numeric" role="columnheader" scope="col">解決済み</th>
+                  <th class="mdc-data-table__header-cell mdc-data-table__header-cell--numeric" role="columnheader" scope="col">解決率</th>
+                  <th class="mdc-data-table__header-cell" role="columnheader" scope="col">ステータス内訳</th>
+                </tr>
+              </thead>
+              <tbody class="mdc-data-table__content">
+                ${tableRowsHtml || '<tr><td colspan="5" class="mdc-data-table__cell"><div class="empty-message"><p>データがありません</p></div></td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * 期間タイプに応じたラベルを取得
+     * @param {string} periodType - 'daily', 'weekly', 'monthly', 'quarterly'
+     * @return {string} ラベル文字列
+     */
+    function getPeriodLabel(periodType) {
+        switch (periodType) {
+            case 'daily': return '日付';
+            case 'weekly': return '週';
+            case 'monthly': return '月';
+            case 'quarterly': return '四半期';
+            default: return '期間';
+        }
+    }
+
+    /**
+     * 期間文字列をフォーマット
+     * @param {string} periodValue - 期間の値 (例: '2023-10-27', '2023-W43')
+     * @param {string} periodType - 期間タイプ
+     * @return {string} フォーマットされたラベル
+     */
+    function formatPeriodLabel(periodValue, periodType) {
+        try {
+            switch (periodType) {
+                case 'daily':
+                    // yyyy-MM-dd -> MM/dd
+                    const dateParts = periodValue.split('-');
+                    return `${dateParts[1]}/${dateParts[2]}`;
+                case 'weekly':
+                    // yyyy-Wnn -> yyyy年 第nn週
+                    const weekParts = periodValue.split('-W');
+                    return `${weekParts[0]}年 第${weekParts[1]}週`;
+                case 'monthly':
+                    // yyyy-MM -> yyyy年MM月
+                    const monthParts = periodValue.split('-');
+                    return `${monthParts[0]}年${monthParts[1]}月`;
+                case 'quarterly':
+                    // yyyy-Qn -> yyyy年 第n四半期
+                    const qParts = periodValue.split('-Q');
+                    return `${qParts[0]}年 第${qParts[1]}四半期`;
+                default:
+                    return periodValue;
+            }
+        } catch (e) {
+            console.warn("Error formatting period label:", e, { periodValue, periodType });
+            return periodValue; // エラー時は元の値を返す
+        }
+    }
+
+    /**
+     * 統計チャートを描画 (Chart.js)
+     * @param {Array<Object>} statsData - 統計データ配列
+     * @param {string} period - 期間タイプ
+     * @param {HTMLCanvasElement} canvasElement - 描画先のCanvas要素
+     */
+    function renderStatsChart(statsData, period, canvasElement) {
+        if (!canvasElement) {
+            console.error("Chart canvas element not found.");
+            return;
+        }
+        const ctx = canvasElement.getContext('2d');
+
+        // 既存チャートがあれば破棄
+        if (statsChart) {
+            statsChart.destroy();
+            statsChart = null;
+        }
+
+        // データの準備 (時系列順)
+        const labels = statsData.map(item => formatPeriodLabel(item.period, period));
+        const totalValues = statsData.map(item => item.total);
+        const finishedValues = statsData.map(item => item.finished);
+        const rateValues = statsData.map(item => parseFloat(item.rate));
+
+        // ステータス別データの準備
+        const statusData = prepareStatusData(statsData);
+
+        // テーマに応じた色を取得
+        const isDark = document.body.classList.contains('dark-theme');
+        updateChartColors(isDark);
+
+        // Chart.jsインスタンス作成 - 初期状態は折れ線グラフ
+        statsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '総ケース数',
+                        data: totalValues,
+                        borderColor: chartColors.primary.border,
+                        backgroundColor: chartColors.primary.background,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        yAxisID: 'yCases',
+                    },
+                    {
+                        label: '解決済み',
+                        data: finishedValues,
+                        borderColor: chartColors.tertiary.border,
+                        backgroundColor: chartColors.tertiary.background,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        yAxisID: 'yCases',
+                    },
+                    {
+                        label: '解決率 (%)',
+                        data: rateValues,
+                        borderColor: chartColors.secondary.border,
+                        backgroundColor: chartColors.secondary.background,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        yAxisID: 'yRate',
+                    }
+                ]
+            },
+            options: getChartOptions(isDark)
+        });
+
+        // ステータス別データも保存 (チャートタイプ切替用)
+        statsChart.statusData = statusData;
+    }
+
+    /**
+     * チャートタイプを更新する
+     * @param {string} type - チャートタイプ ('line', 'pie', 'bar')
+     */
+    function updateChartType(type) {
+        if (!statsChart || !currentStatsData || currentStatsData.length === 0) return;
+
+        currentChartType = type; // グローバル変数を更新
+
+        // テーマに応じた色を取得
+        const isDark = document.body.classList.contains('dark-theme');
+
+        switch (type) {
+            case 'pie':
+                // パイチャートにデータを更新
+                convertToPieChart(isDark);
+                break;
+            case 'bar':
+                // 棒グラフにデータを更新
+                convertToBarChart(isDark);
+                break;
+            case 'line':
+            default:
+                // 折れ線グラフにデータを更新
+                convertToLineChart(isDark);
+                break;
+        }
+    }
+
+    /**
+     * 折れ線グラフに変換
+     * @param {boolean} isDark - ダークテーマかどうか
+     */
+    function convertToLineChart(isDark) {
+        if (!statsChart || !currentStatsData) return;
+
+        const labels = currentStatsData.map(item => formatPeriodLabel(item.period, 'weekly')); // 現在の期間を使用
+        const totalValues = currentStatsData.map(item => item.total);
+        const finishedValues = currentStatsData.map(item => item.finished);
+        const rateValues = currentStatsData.map(item => parseFloat(item.rate));
+
+        // データセットを更新
+        statsChart.data.labels = labels;
+        statsChart.data.datasets = [
+            {
+                label: '総ケース数',
+                data: totalValues,
+                borderColor: chartColors.primary.border,
+                backgroundColor: chartColors.primary.background,
+                fill: false,
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                yAxisID: 'yCases',
+            },
+            {
+                label: '解決済み',
+                data: finishedValues,
+                borderColor: chartColors.tertiary.border,
+                backgroundColor: chartColors.tertiary.background,
+                fill: false,
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                yAxisID: 'yCases',
+            },
+            {
+                label: '解決率 (%)',
+                data: rateValues,
+                borderColor: chartColors.secondary.border,
+                backgroundColor: chartColors.secondary.background,
+                fill: false,
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                yAxisID: 'yRate',
+            }
+        ];
+
+        // チャートタイプを変更
+        statsChart.config.type = 'line';
+
+        // オプションを更新
+        statsChart.options = getChartOptions(isDark);
+
+        // チャートを更新
+        statsChart.update();
+    }
+
+    /**
+     * パイチャートに変換 (ステータス内訳)
+     * @param {boolean} isDark - ダークテーマかどうか
+     */
+    function convertToPieChart(isDark) {
+        if (!statsChart || !statsChart.statusData) return;
+
+        const statusData = statsChart.statusData;
+
+        // 色のパレットを作成 (ステータスに応じた色)
+        const backgroundColors = [];
+        const borderColors = [];
+
+        statusData.labels.forEach(status => {
+            let color;
+            switch (status) {
+                case 'Assigned':
+                    color = chartColors.info;
+                    break;
+                case 'Solution Offered':
+                    color = chartColors.warning;
+                    break;
+                case 'Finished':
+                    color = chartColors.tertiary;
+                    break;
+                default:
+                    color = chartColors.other;
+                    break;
+            }
+            backgroundColors.push(color.background);
+            borderColors.push(color.border);
+        });
+
+        // データセットを更新
+        statsChart.data.labels = statusData.labels;
+        statsChart.data.datasets = [
+            {
+                label: 'ステータス別ケース数',
+                data: statusData.data,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1,
+                hoverOffset: 10,
+            }
+        ];
+
+        // チャートタイプを変更
+        statsChart.config.type = 'pie';
+
+        // パイチャート用のオプション
+        statsChart.options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart',
+                animateRotate: true,
+                animateScale: true
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: isDark ? chartColors.text.dark : chartColors.text.light,
+                        padding: 20,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? 'rgba(40,40,40,0.9)' : 'rgba(0,0,0,0.8)',
+                    titleColor: isDark ? '#eee' : '#fff',
+                    bodyColor: isDark ? '#ddd' : '#fff',
+                    boxPadding: 4,
+                    padding: 10,
+                    cornerRadius: 4,
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.label || '';
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'ステータス別ケース内訳',
+                    color: isDark ? chartColors.text.dark : chartColors.text.light,
+                    font: {
+                        size: 16,
+                        weight: '500'
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                }
+            }
+        };
+
+        // チャートを更新
+        statsChart.update();
+    }
+
+    /**
+     * 棒グラフに変換
+     * @param {boolean} isDark - ダークテーマかどうか
+     */
+    function convertToBarChart(isDark) {
+        if (!statsChart || !currentStatsData) return;
+
+        const labels = currentStatsData.map(item => formatPeriodLabel(item.period, 'weekly')); // 現在の期間を使用
+        const totalValues = currentStatsData.map(item => item.total);
+        const finishedValues = currentStatsData.map(item => item.finished);
+
+        // データセットを更新
+        statsChart.data.labels = labels;
+        statsChart.data.datasets = [
+            {
+                label: '総ケース数',
+                data: totalValues,
+                backgroundColor: chartColors.primary.background,
+                borderColor: chartColors.primary.border,
+                borderWidth: 1,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8,
+            },
+            {
+                label: '解決済み',
+                data: finishedValues,
+                backgroundColor: chartColors.tertiary.background,
+                borderColor: chartColors.tertiary.border,
+                borderWidth: 1,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8,
+            }
+        ];
+
+        // チャートタイプを変更
+        statsChart.config.type = 'bar';
+
+        // 棒グラフ用のオプション
+        statsChart.options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    },
+                    ticks: {
+                        color: isDark ? chartColors.text.dark : chartColors.text.light,
+                        maxRotation: 45,
+                        minRotation: 0
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    },
+                    ticks: {
+                        color: isDark ? chartColors.text.dark : chartColors.text.light,
+                        precision: 0
+                    },
+                    title: {
+                        display: true,
+                        text: 'ケース数',
+                        color: isDark ? chartColors.text.dark : chartColors.text.light
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: isDark ? chartColors.text.dark : chartColors.text.light,
+                        padding: 20,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? 'rgba(40,40,40,0.9)' : 'rgba(0,0,0,0.8)',
+                    titleColor: isDark ? '#eee' : '#fff',
+                    bodyColor: isDark ? '#ddd' : '#fff',
+                    boxPadding: 4,
+                    padding: 10,
+                    cornerRadius: 4
+                },
+                title: {
+                    display: true,
+                    text: '期間別ケース数',
+                    color: isDark ? chartColors.text.dark : chartColors.text.light,
+                    font: {
+                        size: 16,
+                        weight: '500'
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                }
+            }
+        };
+
+        // チャートを更新
+        statsChart.update();
+    }
+
+    /**
+     * ステータス別データを準備する (パイチャート用)
+     * @param {Array<Object>} statsData - 統計データ配列
+     * @return {Object} { labels: Array<string>, data: Array<number> }
+     */
+    function prepareStatusData(statsData) {
+        // 全期間のステータス合計を計算
+        const statusCounts = {};
+
+        statsData.forEach(item => {
+            if (item.statusBreakdown) {
+                Object.entries(item.statusBreakdown).forEach(([status, count]) => {
+                    statusCounts[status] = (statusCounts[status] || 0) + count;
+                });
+            }
+        });
+
+        // ラベルと数値の配列に変換
+        const labels = Object.keys(statusCounts);
+        const data = labels.map(status => statusCounts[status]);
+
+        return { labels, data };
+    }
+
+    // チャート色の定義
+    const chartColors = {
+        primary: {
+            border: 'rgba(26, 115, 232, 1)', // Google Blue
+            background: 'rgba(26, 115, 232, 0.2)'
+        },
+        secondary: {
+            border: 'rgba(232, 113, 10, 1)', // Google Orange
+            background: 'rgba(232, 113, 10, 0.2)'
+        },
+        tertiary: {
+            border: 'rgba(24, 128, 56, 1)', // Google Green
+            background: 'rgba(24, 128, 56, 0.2)'
+        },
+        info: {
+            border: 'rgba(66, 133, 244, 1)', // Google Blue (lighter)
+            background: 'rgba(66, 133, 244, 0.2)'
+        },
+        warning: {
+            border: 'rgba(242, 153, 0, 1)', // Google Yellow
+            background: 'rgba(242, 153, 0, 0.2)'
+        },
+        error: {
+            border: 'rgba(217, 48, 37, 1)', // Google Red
+            background: 'rgba(217, 48, 37, 0.2)'
+        },
+        other: {
+            border: 'rgba(125, 125, 125, 1)', // Gray
+            background: 'rgba(125, 125, 125, 0.2)'
+        },
+        text: {
+            light: '#1f1f1f',
+            dark: '#e8eaed'
+        },
+        grid: {
+            light: 'rgba(0, 0, 0, 0.1)',
+            dark: 'rgba(255, 255, 255, 0.1)'
+        }
+    };
+
+    /**
+     * テーマに応じてチャート色を更新
+     * @param {boolean} isDark - ダークテーマかどうか
+     */
+    function updateChartColors(isDark) {
+        if (isDark) {
+            // ダークテーマ用色設定
+            chartColors.primary.border = 'rgba(138, 180, 248, 1)'; // Lighter Blue
+            chartColors.primary.background = 'rgba(138, 180, 248, 0.2)';
+
+            chartColors.secondary.border = 'rgba(255, 185, 128, 1)'; // Lighter Orange
+            chartColors.secondary.background = 'rgba(255, 185, 128, 0.2)';
+
+            chartColors.tertiary.border = 'rgba(125, 203, 133, 1)'; // Lighter Green
+            chartColors.tertiary.background = 'rgba(125, 203, 133, 0.2)';
+
+            chartColors.info.border = 'rgba(138, 180, 248, 1)'; // Lighter Blue
+            chartColors.info.background = 'rgba(138, 180, 248, 0.2)';
+
+            chartColors.warning.border = 'rgba(253, 214, 99, 1)'; // Lighter Yellow
+            chartColors.warning.background = 'rgba(253, 214, 99, 0.2)';
+
+            chartColors.error.border = 'rgba(242, 139, 130, 1)'; // Lighter Red
+            chartColors.error.background = 'rgba(242, 139, 130, 0.2)';
+
+            chartColors.other.border = 'rgba(175, 175, 175, 1)'; // Lighter Gray
+            chartColors.other.background = 'rgba(175, 175, 175, 0.2)';
+        } else {
+            // ライトテーマ用色設定
+            chartColors.primary.border = 'rgba(26, 115, 232, 1)'; // Google Blue
+            chartColors.primary.background = 'rgba(26, 115, 232, 0.2)';
+
+            chartColors.secondary.border = 'rgba(232, 113, 10, 1)'; // Google Orange
+            chartColors.secondary.background = 'rgba(232, 113, 10, 0.2)';
+
+            chartColors.tertiary.border = 'rgba(24, 128, 56, 1)'; // Google Green
+            chartColors.tertiary.background = 'rgba(24, 128, 56, 0.2)';
+
+            chartColors.info.border = 'rgba(66, 133, 244, 1)'; // Google Blue (lighter)
+            chartColors.info.background = 'rgba(66, 133, 244, 0.2)';
+
+            chartColors.warning.border = 'rgba(242, 153, 0, 1)'; // Google Yellow
+            chartColors.warning.background = 'rgba(242, 153, 0, 0.2)';
+
+            chartColors.error.border = 'rgba(217, 48, 37, 1)'; // Google Red
+            chartColors.error.background = 'rgba(217, 48, 37, 0.2)';
+
+            chartColors.other.border = 'rgba(125, 125, 125, 1)'; // Gray
+            chartColors.other.background = 'rgba(125, 125, 125, 0.2)';
+        }
+    }
+
+    /**
+     * Chart.js のオプションを取得する
+     * @param {boolean} isDark - ダークテーマかどうか
+     * @return {object} Chart.js の options オブジェクト
+     */
+    function getChartOptions(isDark) {
+        const gridColor = isDark ? chartColors.grid.dark : chartColors.grid.light;
+        const textColor = isDark ? chartColors.text.dark : chartColors.text.light;
+
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 800, // アニメーション時間 (ms)
+                easing: 'easeOutQuart' // アニメーションのイージング
+            },
+            interaction: { // ツールチップの挙動改善
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: gridColor,
+                        borderColor: gridColor,
+                    },
+                    ticks: {
+                        color: textColor,
+                        maxRotation: 45, // ラベルが重なる場合に回転
+                        minRotation: 0
+                    }
+                },
+                yCases: { // ケース数用の左軸
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    grid: {
+                        color: gridColor,
+                        borderColor: gridColor,
+                    },
+                    ticks: {
+                        color: textColor,
+                        precision: 0 // 整数表示
+                    },
+                    title: {
+                        display: true,
+                        text: 'ケース数',
+                        color: textColor
+                    }
+                },
+                yRate: { // 解決率用の右軸
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    min: 0,
+                    max: 100, // 0-100%
+                    grid: {
+                        drawOnChartArea: false, // 背景グリッド線は描画しない
+                    },
+                    ticks: {
+                        color: textColor,
+                        callback: function (value) {
+                            return value + '%'; // パーセント表示
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: '解決率 (%)',
+                        color: textColor
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom', // 凡例を下に
+                    labels: {
+                        color: textColor,
+                        boxWidth: 12,
+                        padding: 20,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? 'rgba(40,40,40,0.9)' : 'rgba(0,0,0,0.8)',
+                    titleColor: isDark ? '#eee' : '#fff',
+                    bodyColor: isDark ? '#ddd' : '#fff',
+                    boxPadding: 4,
+                    padding: 10,
+                    cornerRadius: 4,
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            const value = context.parsed.y;
+                            if (context.dataset.yAxisID === 'yRate') {
+                                label += value.toFixed(2) + '%'; // 解決率は小数点以下も表示
+                            } else {
+                                label += value;
+                            }
+                            return label;
+                        }
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'NCC統計',
+                    color: textColor,
+                    font: {
+                        size: 16,
+                        weight: '500'
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                }
+            }
+        };
+    }
+
+    /**
+     * テーマ切替時にチャートを更新する関数
+     */
+    function updateChartTheme(isDark) {
+        if (statsChart) {
+            // テーマに応じた色を更新
+            updateChartColors(isDark);
+
+            // 現在のチャートタイプに応じて更新
+            updateChartType(currentChartType);
+        }
+    }
+</script>
