@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3PO Chat ケース管理システム</title>
+
+  <!-- Material Icons & Symbols -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round|Material+Symbols+Rounded"
+    rel="stylesheet">
+
+  <!-- Google Fonts (Google Sans & Roboto) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Text:wght@400;500;700&display=swap"
+    rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <!-- MDC Web CSS -->
+  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+
+  <!-- Flatpickr (Calendar Picker) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+
+  <!-- Custom Styles -->
+  <?!= include('styles'); ?>
+
+</head>
+
+<body class="mdc-typography">
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-container">
+          <span class="material-symbols-rounded logo-icon" aria-hidden="true">contact_support</span>
+          <h1 class="app-title">3PO Chat ケース管理</h1>
+        </div>
+        <div class="user-controls">
+          <!-- Live Mode Button -->
+          <button id="liveModeBtn" class="mdc-button mdc-button--outlined mdc-button--icon-leading"
+            title="新規ケース登録を別ウィンドウで開く">
+            <span class="mdc-button__ripple"></span>
+            <i class="material-icons mdc-button__icon" aria-hidden="true">open_in_new</i>
+            <span class="mdc-button__label">Live Mode</span>
+          </button>
+          <!-- Theme Toggle Button -->
+          <button id="themeToggle" class="mdc-icon-button material-icons" aria-label="テーマ切り替え" title="テーマ切り替え">
+            dark_mode
+          </button>
+          <!-- User Info -->
+          <div class="user-info" id="userInfoContainer">
+            <i class="material-icons-outlined" aria-hidden="true">account_circle</i>
+            <span class="user-email" id="userEmail">読み込み中...</span>
+          </div>
+        </div>
+      </div>
+      <!-- Tab Bar -->
+      <div class="tab-container">
+        <div class="mdc-tab-bar" role="tablist">
+          <div class="mdc-tab-scroller">
+            <div class="mdc-tab-scroller__scroll-area">
+              <div class="mdc-tab-scroller__scroll-content">
+                <button class="mdc-tab mdc-tab--active" role="tab" aria-selected="true" tabindex="0"
+                  data-tab-id="dashboard">
+                  <span class="mdc-tab__content">
+                    <span class="mdc-tab__icon material-icons-outlined" aria-hidden="true">dashboard</span>
+                    <span class="mdc-tab__text-label">ダッシュボード</span>
+                  </span>
+                  <span class="mdc-tab-indicator mdc-tab-indicator--active">
+                    <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                  </span>
+                  <span class="mdc-tab__ripple"></span>
+                </button>
+                <button class="mdc-tab" role="tab" aria-selected="false" tabindex="-1" data-tab-id="new-case">
+                  <span class="mdc-tab__content">
+                    <span class="mdc-tab__icon material-icons-outlined" aria-hidden="true">add_box</span>
+                    <span class="mdc-tab__text-label">新規ケース登録</span>
+                  </span>
+                  <span class="mdc-tab-indicator">
+                    <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                  </span>
+                  <span class="mdc-tab__ripple"></span>
+                </button>
+                <button class="mdc-tab" role="tab" aria-selected="false" tabindex="-1" data-tab-id="case-search">
+                  <span class="mdc-tab__content">
+                    <span class="mdc-tab__icon material-icons-outlined" aria-hidden="true">search</span>
+                    <span class="mdc-tab__text-label">Case検索</span>
+                  </span>
+                  <span class="mdc-tab-indicator">
+                    <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                  </span>
+                  <span class="mdc-tab__ripple"></span>
+                </button>
+                <button class="mdc-tab" role="tab" aria-selected="false" tabindex="-1" data-tab-id="ncc-stats">
+                  <span class="mdc-tab__content">
+                    <span class="mdc-tab__icon material-icons-outlined" aria-hidden="true">insights</span>
+                    <span class="mdc-tab__text-label">NCC統計</span>
+                  </span>
+                  <span class="mdc-tab-indicator">
+                    <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                  </span>
+                  <span class="mdc-tab__ripple"></span>
+                </button>
+                <button class="mdc-tab" role="tab" aria-selected="false" tabindex="-1" data-tab-id="settings">
+                  <span class="mdc-tab__content">
+                    <span class="mdc-tab__icon material-icons-outlined" aria-hidden="true">settings</span>
+                    <span class="mdc-tab__text-label">設定</span>
+                  </span>
+                  <span class="mdc-tab-indicator">
+                    <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                  </span>
+                  <span class="mdc-tab__ripple"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-content">
+      <!-- Dashboard Screen -->
+      <section id="dashboard" class="tab-content active">
+        <div class="section-header">
+          <h2>アクティブケース</h2>
+          <button id="refreshDashboard" class="mdc-button mdc-button--outlined mdc-button--icon-leading">
+            <span class="mdc-button__ripple"></span>
+            <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">refresh</i>
+            <span class="mdc-button__label">更新</span>
+          </button>
+        </div>
+        <div class="case-cards" id="activeCasesList">
+          <!-- Active cases will be loaded here by dashboard.js -->
+          <div class="loading-container">
+            <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+              <div class="mdc-linear-progress__buffer">
+                <div class="mdc-linear-progress__buffer-dots"></div>
+                <div class="mdc-linear-progress__buffer-bar"></div>
+              </div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+              </div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+              </div>
+            </div>
+            <p>ケース情報を読み込み中...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- New Case Registration Screen -->
+      <section id="new-case" class="tab-content">
+        <div class="section-header">
+          <h2>新規ケース登録</h2>
+        </div>
+        <div class="form-container" id="newCaseFormContainer">
+          <!-- New case form will be loaded here by caseManagement.js -->
+          <div class="loading-container">
+            <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+              <div class="mdc-linear-progress__buffer">
+                <div class="mdc-linear-progress__buffer-dots"></div>
+                <div class="mdc-linear-progress__buffer-bar"></div>
+              </div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span
+                  class="mdc-linear-progress__bar-inner"></span></div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span
+                  class="mdc-linear-progress__bar-inner"></span></div>
+            </div>
+            <p>フォーム読み込み中...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Case Search Screen -->
+      <section id="case-search" class="tab-content">
+        <div class="section-header">
+          <h2>Case検索</h2>
+        </div>
+        <div class="search-container">
+          <div class="search-input-area">
+            <label class="mdc-text-field mdc-text-field--outlined mdc-text-field--with-leading-icon"
+              id="caseIdSearchLabel">
+              <span class="mdc-notched-outline">
+                <span class="mdc-notched-outline__leading"></span>
+                <span class="mdc-notched-outline__notch">
+                  <span class="mdc-floating-label">Case ID で検索</span>
+                </span>
+                <span class="mdc-notched-outline__trailing"></span>
+              </span>
+              <i class="material-icons-outlined mdc-text-field__icon mdc-text-field__icon--leading" tabindex="0"
+                role="button">search</i>
+              <input type="text" id="caseIdSearchInput" class="mdc-text-field__input"
+                aria-labelledby="caseIdSearchLabel">
+            </label>
+            <button id="searchCaseBtn" class="mdc-button mdc-button--raised">
+              <span class="mdc-button__ripple"></span>
+              <span class="mdc-button__label">検索</span>
+            </button>
+          </div>
+          <div id="searchResultContainer">
+            <!-- Search results will be displayed here -->
+            <div class="empty-message">
+              <i class="material-icons-outlined">search</i>
+              <p>Case ID を入力して検索してください。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NCC Statistics Screen -->
+      <section id="ncc-stats" class="tab-content">
+        <div class="section-header">
+          <h2>NCC統計</h2>
+        </div>
+        <div class="stats-controls">
+          <div class="mdc-select mdc-select--outlined period-selector" id="statsPeriodSelectComponent">
+            <div class="mdc-select__anchor" role="button" aria-haspopup="listbox" aria-expanded="false"
+              aria-labelledby="stats-period-label stats-period-selected-text">
+              <span class="mdc-notched-outline">
+                <span class="mdc-notched-outline__leading"></span>
+                <span class="mdc-notched-outline__notch">
+                  <span id="stats-period-label" class="mdc-floating-label">集計期間</span>
+                </span>
+                <span class="mdc-notched-outline__trailing"></span>
+              </span>
+              <span class="mdc-select__selected-text-container">
+                <span id="stats-period-selected-text" class="mdc-select__selected-text"></span>
+              </span>
+              <span class="mdc-select__dropdown-icon">
+                <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                  <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10"></polygon>
+                  <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15"></polygon>
+                </svg>
+              </span>
+            </div>
+            <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+              <ul class="mdc-list" role="listbox" aria-label="集計期間選択">
+                <li class="mdc-list-item" aria-selected="false" data-value="daily" role="option">
+                  <span class="mdc-list-item__ripple"></span>
+                  <span class="mdc-list-item__text">日別</span>
+                </li>
+                <li class="mdc-list-item mdc-list-item--selected" aria-selected="true" data-value="weekly"
+                  role="option">
+                  <span class="mdc-list-item__ripple"></span>
+                  <span class="mdc-list-item__text">週別</span>
+                </li>
+                <li class="mdc-list-item" aria-selected="false" data-value="monthly" role="option">
+                  <span class="mdc-list-item__ripple"></span>
+                  <span class="mdc-list-item__text">月別</span>
+                </li>
+                <li class="mdc-list-item" aria-selected="false" data-value="quarterly" role="option">
+                  <span class="mdc-list-item__ripple"></span>
+                  <span class="mdc-list-item__text">四半期別</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <button id="refreshStats" class="mdc-button mdc-button--outlined mdc-button--icon-leading">
+            <span class="mdc-button__ripple"></span>
+            <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">refresh</i>
+            <span class="mdc-button__label">更新</span>
+          </button>
+        </div>
+        <div class="stats-container">
+          <div class="stats-summary" id="statsSummary">
+            <!-- Stats summary will be loaded here -->
+            <div class="loading-container" style="grid-column: 1 / -1;">
+              <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+                <div class="mdc-linear-progress__buffer">
+                  <div class="mdc-linear-progress__buffer-dots"></div>
+                  <div class="mdc-linear-progress__buffer-bar"></div>
+                </div>
+                <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span
+                    class="mdc-linear-progress__bar-inner"></span></div>
+                <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span
+                    class="mdc-linear-progress__bar-inner"></span></div>
+              </div>
+              <p>統計データを読み込み中...</p>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="statsChart"></canvas>
+          </div>
+          <div id="statsChartSwitcher" class="mdc-segmented-button" role="radiogroup">
+            <button class="mdc-segmented-button__segment mdc-segmented-button__segment--selected" role="radio"
+              aria-checked="true" data-type="line">
+              <div class="mdc-segmented-button__label">折れ線グラフ</div>
+            </button>
+            <button class="mdc-segmented-button__segment" role="radio" aria-checked="false" data-type="pie">
+              <div class="mdc-segmented-button__label">円グラフ</div>
+            </button>
+            <button class="mdc-segmented-button__segment" role="radio" aria-checked="false" data-type="bar">
+              <div class="mdc-segmented-button__label">棒グラフ</div>
+            </button>
+          </div>
+          <div class="stats-table-container" id="statsTableContainer">
+            <!-- Stats table (MDC Data Table) will be loaded here -->
+            <div class="loading-container">
+              <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+                <div class="mdc-linear-progress__buffer">
+                  <div class="mdc-linear-progress__buffer-dots"></div>
+                  <div class="mdc-linear-progress__buffer-bar"></div>
+                </div>
+                <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span
+                    class="mdc-linear-progress__bar-inner"></span></div>
+                <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span
+                    class="mdc-linear-progress__bar-inner"></span></div>
+              </div>
+              <p>テーブルデータを読み込み中...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings Screen -->
+      <section id="settings" class="tab-content">
+        <div class="section-header">
+          <h2>スプレッドシート設定</h2>
+        </div>
+        <div class="settings-form">
+          <label id="spreadsheetIdLabel" class="mdc-text-field mdc-text-field--outlined">
+            <span class="mdc-notched-outline">
+              <span class="mdc-notched-outline__leading"></span>
+              <span class="mdc-notched-outline__notch">
+                <span class="mdc-floating-label">スプレッドシートID</span>
+              </span>
+              <span class="mdc-notched-outline__trailing"></span>
+            </span>
+            <input type="text" id="spreadsheetIdInput" class="mdc-text-field__input"
+              aria-labelledby="spreadsheetIdLabel">
+          </label>
+          <div class="mdc-text-field-helper-line">
+            <div class="mdc-text-field-helper-text" aria-hidden="true">
+              例: 1V7xfNbmraAIZ7_w3U69bd16Dwu3ZzA9jJF5DVyiOrZ8
+            </div>
+          </div>
+
+          <div id="connectionStatus" class="connection-status" style="margin-top: 16px; min-height: 40px;">
+            <!-- Connection status message appears here -->
+          </div>
+
+          <div class="buttons-container">
+            <button id="testConnectionBtn" class="mdc-button mdc-button--outlined">
+              <span class="mdc-button__ripple"></span>
+              <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">link</i>
+              <span class="mdc-button__label">接続テスト</span>
+            </button>
+            <button id="saveSettingsBtn" class="mdc-button mdc-button--raised">
+              <span class="mdc-button__ripple"></span>
+              <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">save</i>
+              <span class="mdc-button__label">設定を保存</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>©
+        <?= new Date().getFullYear() ?> Google LLC. All Rights Reserved.
+      </p>
+    </footer>
+  </div>
+
+  <!-- Case Detail/Edit Modal (MDC Dialog) -->
+  <div class="mdc-dialog" id="caseDetailModal">
+    <div class="mdc-dialog__container">
+      <div class="mdc-dialog__surface" role="alertdialog" aria-modal="true" aria-labelledby="case-dialog-title"
+        aria-describedby="case-dialog-content">
+        <h2 class="mdc-dialog__title" id="case-dialog-title">ケース詳細 / 編集</h2>
+        <div class="mdc-dialog__content" id="caseDetailContent">
+          <!-- Case details/edit form will be loaded here -->
+          <div class="loading-container">
+            <div class="mdc-linear-progress mdc-linear-progress--indeterminate">
+              <div class="mdc-linear-progress__buffer">
+                <div class="mdc-linear-progress__buffer-dots"></div>
+                <div class="mdc-linear-progress__buffer-bar"></div>
+              </div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span
+                  class="mdc-linear-progress__bar-inner"></span></div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span
+                  class="mdc-linear-progress__bar-inner"></span></div>
+            </div>
+            <p>詳細を読み込み中...</p>
+          </div>
+        </div>
+        <div class="mdc-dialog__actions">
+          <button type="button" class="mdc-button mdc-dialog__button" data-mdc-dialog-action="close">
+            <span class="mdc-button__ripple"></span>
+            <span class="mdc-button__label">閉じる</span>
+          </button>
+          <button type="button" id="saveCaseChangesBtn" class="mdc-button mdc-button--raised mdc-dialog__button"
+            data-mdc-dialog-action="save" style="display: none;"> <!-- Initially hidden -->
+            <span class="mdc-button__ripple"></span>
+            <i class="material-icons-outlined mdc-button__icon" aria-hidden="true">save</i>
+            <span class="mdc-button__label">保存</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="mdc-dialog__scrim"></div>
+  </div>
+
+  <!-- Snackbar for Notifications -->
+  <aside class="mdc-snackbar" id="appSnackbar">
+    <div class="mdc-snackbar__surface" role="status" aria-relevant="additions text">
+      <div class="mdc-snackbar__label" aria-atomic="false"></div>
+      <div class="mdc-snackbar__actions" aria-atomic="true">
+        <button type="button" class="mdc-icon-button mdc-snackbar__dismiss material-icons" title="閉じる">close</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- JavaScript Libraries -->
+  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
+
+  <!-- Custom Scripts (loaded via GAS include) -->
+  <?!= include('script'); ?>
+  <?!= include('dashboard'); ?>
+  <?!= include('caseManagement'); ?>
+  <?!= include('statsUI'); ?>
+
+</body>
+
+</html>
